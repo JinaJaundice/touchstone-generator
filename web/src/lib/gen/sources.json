@@ -1,0 +1,294 @@
+{
+  "about": "Every figure the generator is calibrated to, dated, with the id of its entry in the register of sources. The register is a document of the working repository, and docs/SOURCES.md lists its cited entries in the public copy. In the working repository scripts/qa-gen.ts checks the data against this file. A figure marked assumption has no published source; the method says so where it is used.",
+  "retrievedOn": "2026-09-23",
+  "calendar": {
+    "day0": "2026-07-06",
+    "why": "Period 1 of every data set starts on Monday 6 July 2026, the first full week under the rules in force from 30 June 2026 (SI 2026/621: the GBP 800 crypto information line, the GBP 10,000 cash line, enhanced due diligence for FATF call-for-action countries). Period n starts (n - 1) x days later.",
+    "source": "S45, S46",
+    "bankHolidaysEnglandWales": {
+      "source": "S12 GOV.UK bank-holidays.json, read 2026-09-23",
+      "dates": [
+        "2025-01-01",
+        "2025-04-18",
+        "2025-04-21",
+        "2025-05-05",
+        "2025-05-26",
+        "2025-08-25",
+        "2025-12-25",
+        "2025-12-26",
+        "2026-01-01",
+        "2026-04-03",
+        "2026-04-06",
+        "2026-05-04",
+        "2026-05-25",
+        "2026-08-31",
+        "2026-12-25",
+        "2026-12-28",
+        "2027-01-01",
+        "2027-03-26",
+        "2027-03-29",
+        "2027-05-03",
+        "2027-05-31",
+        "2027-08-30",
+        "2027-12-27",
+        "2027-12-28"
+      ]
+    }
+  },
+  "ofac": {
+    "see": "src/lib/lists/ofac.json (the screening list; register S44)"
+  },
+  "travelRule": {
+    "lineGbp": 800,
+    "inForceFrom": "2026-06-30",
+    "source": "S45 MLR 64C(4) and 64G(1)(b), substituted by SI 2026/621 reg 32"
+  },
+  "cashLine": {
+    "gbp": 10000,
+    "source": "S46 MLR reg 14(1)(a), high value dealers"
+  },
+  "fasterPayments": {
+    "schemeLimit": 1000000,
+    "perPaymentGbp": {
+      "retail": 25000,
+      "private": 100000,
+      "sme": 250000,
+      "corporate": 1000000
+    },
+    "source": "S06 Pay.UK transaction limits page, read 13 Nov 2026. The scheme allows one payment of up to GBP 1m. 7 of the listed organisations show a personal online limit of GBP 25,000 for one payment, and business online limits run from GBP 10,000 to GBP 1m"
+  },
+  "chaps": {
+    "openMinute": 360,
+    "customerCutoffMinute": 1060,
+    "workingDaysOnly": true,
+    "source": "S08 Bank of England, CHAPS: open 6am, customer payments by 5.40pm"
+  },
+  "bacs": {
+    "workingDaysOnly": true,
+    "entryMinuteRange": [
+      0,
+      360
+    ],
+    "source": "S09 Bacs three-day cycle; entry on the third working day, early morning"
+  },
+  "cash": {
+    "atmDailyLimitGbp": 500,
+    "atmMinimumGbp": 10,
+    "source": "S13 Nationwide daily limits: GBP 500 at a machine"
+  },
+  "contactless": {
+    "limitGbp": 100,
+    "source": "S15 most firms kept GBP 100 after 19 Mar 2026"
+  },
+  "sca": {
+    "lowValueGbp": 25,
+    "cumulativeGbp": 85,
+    "consecutive": 5,
+    "source": "S15 SCA-RTS art 16"
+  },
+  "app2024": {
+    "source": "S01 UK Finance Annual Fraud Report 2025 (data for 2024). Each figure below is a ratio that this project computed from the report's totals for the scam type. This file holds no figure of the report",
+    "byType": {
+      "scam_purchase": {
+        "valuePerPaymentGbp": 459.79317225615387,
+        "paymentsPerCase": 1.4411359711518712
+      },
+      "scam_investment": {
+        "valuePerPaymentGbp": 4915.2426986180135,
+        "paymentsPerCase": 3.782412771984035
+      },
+      "scam_romance": {
+        "valuePerPaymentGbp": 681.8689917281466,
+        "paymentsPerCase": 10.94445803768045
+      },
+      "scam_advance_fee": {
+        "valuePerPaymentGbp": 925.7671866963826,
+        "paymentsPerCase": 2.3729066377381516
+      },
+      "scam_invoice": {
+        "valuePerPaymentGbp": 12900.302114803626,
+        "paymentsPerCase": 1.4385049978270317
+      },
+      "scam_ceo": {
+        "valuePerPaymentGbp": 26757.36961451247,
+        "paymentsPerCase": 1.6333333333333333
+      },
+      "scam_impersonation_bank": {
+        "valuePerPaymentGbp": 3433.1857254493357,
+        "paymentsPerCase": 2.665231880033324
+      },
+      "scam_impersonation_other": {
+        "valuePerPaymentGbp": 1243.8329511500244,
+        "paymentsPerCase": 1.607035175879397
+      }
+    },
+    "note": "Computed from the totals for all cases in 2024 (personal and non-personal together). Each ratio is kept at full precision, so that a seed number gives the same data set as it gave before 13 November 2026."
+  },
+  "card2024": {
+    "source": "S01 UK Finance Annual Fraud Report 2025 (data for 2024). Each figure below is the mean value of a case, which this project computed from the report's totals for the type of card fraud",
+    "byType": {
+      "card_remote": {
+        "valuePerCaseGbp": 154.51139637547817
+      },
+      "card_lost_stolen": {
+        "valuePerCaseGbp": 283.9475845965699
+      },
+      "card_counterfeit": {
+        "valuePerCaseGbp": 264.1739483844747
+      }
+    }
+  },
+  "remoteBanking2024": {
+    "source": "S01 UK Finance Annual Fraud Report 2025 (data for 2024). The figure is the mean value of a case of unauthorised remote banking fraud, which this project computed from the report's totals",
+    "valuePerCaseGbp": 4534.9508954361645
+  },
+  "railMix2025": {
+    "source": "S11 UK Finance, press release on its Payment Markets Report 2025. The ordinary rail mix of the generator follows the release in 4 points, which are cards for most spending, cash for under a tenth of payments, Faster Payments for transfers and Direct Debit for bills. This file holds no figure of the release"
+  },
+  "mcc": {
+    "source": "S16 Visa Merchant Data Standards Manual, April 2026 (codes); the weights are an assumption",
+    "names": {
+      "5411": "grocery",
+      "5812": "restaurant",
+      "5814": "fast food",
+      "5541": "fuel",
+      "5311": "department store",
+      "5691": "clothing",
+      "5732": "electronics",
+      "5944": "jewellery",
+      "5999": "miscellaneous retail",
+      "5816": "digital games",
+      "5815": "digital media",
+      "4111": "local transport",
+      "4121": "taxi",
+      "4511": "airline",
+      "4722": "travel agent",
+      "7011": "hotel",
+      "4814": "telecoms",
+      "4900": "utilities",
+      "5912": "pharmacy",
+      "6011": "cash machine",
+      "6051": "quasi-cash",
+      "7995": "betting"
+    },
+    "ordinaryWeights": {
+      "5411": 30,
+      "5812": 8,
+      "5814": 7,
+      "5541": 8,
+      "5311": 5,
+      "5691": 6,
+      "5732": 3,
+      "5944": 0.5,
+      "5999": 10,
+      "5816": 2,
+      "5815": 3,
+      "4111": 6,
+      "4121": 2,
+      "4511": 1,
+      "4722": 1,
+      "7011": 1.5,
+      "4814": 2,
+      "4900": 1,
+      "5912": 4,
+      "7995": 1
+    },
+    "abroadWeights": {
+      "5411": 15,
+      "5812": 20,
+      "5814": 8,
+      "5541": 6,
+      "4111": 10,
+      "4121": 8,
+      "7011": 12,
+      "5311": 6,
+      "5691": 5,
+      "5999": 10
+    },
+    "cardFraudRemoteWeights": {
+      "5732": 25,
+      "5944": 8,
+      "5999": 20,
+      "5816": 15,
+      "5815": 8,
+      "4511": 8,
+      "4722": 6,
+      "6051": 5,
+      "5691": 5
+    }
+  },
+  "lumpSums": {
+    "source": "S54 ONS, Intergenerational transfers: the distribution of inheritances, gifts and loans, Great Britain: 2014 to 2016 (30 Oct 2018), Wealth and Assets Survey",
+    "inheritanceTwoYearShare": 0.04,
+    "inheritanceMedianGbp": 11000,
+    "giftTwoYearShare": 0.06,
+    "giftTwoYearShareAge25to34": 0.11,
+    "giftMedianGbp": 2000,
+    "spread": 0.9,
+    "spreadAnchor": "no published spread; a lognormal around the published median"
+  },
+  "assumptions": {
+    "note": "Rates with no published source, stated so the method can say where it assumes. Each is used for ordinary customers so a rule that reads the signal raises false alerts as it would in a bank.",
+    "sessionChannelRetail": {
+      "mobile": 0.72,
+      "online": 0.2,
+      "telephone": 0.03,
+      "branch": 0.05,
+      "anchor": "S11: most adults use mobile banking"
+    },
+    "sessionChannelBusiness": {
+      "online": 0.7,
+      "mobile": 0.25,
+      "branch": 0.05
+    },
+    "newDevicePerYear": 0.4,
+    "newDeviceWindowDays": 7,
+    "vpnUserShare": 0.08,
+    "vpnSessionShareForUsers": 0.5,
+    "callActiveShare": 0.015,
+    "remoteAccessShare": 0.002,
+    "sessionSecondsMedian": 75,
+    "passwordResetPerYear": 0.5,
+    "phoneChangedPerYear": 0.08,
+    "copOrdinaryNewPayee": {
+      "match": 0.9,
+      "close-match": 0.06,
+      "no-match": 0.025,
+      "unavailable": 0.015,
+      "anchor": "S07 describes the four outcomes; no published split was found"
+    },
+    "reasonOrdinaryNewPayee": {
+      "friends-family": 0.45,
+      "goods-services": 0.25,
+      "bill": 0.15,
+      "own-account": 0.08,
+      "investment": 0.02,
+      "other": 0.05
+    },
+    "cardOnlineShare": 0.25,
+    "cardDeclineShare": 0.015,
+    "threeDSUk": {
+      "authenticated": 0.5,
+      "exempt-recurring": 0.1,
+      "not-attempted": 0.05
+    },
+    "threeDSOutsideUkEea": {
+      "authenticated": 0.4,
+      "not-attempted": 0.6,
+      "anchor": "S42: card fraud 17 times higher outside the EEA, where authentication may not be required"
+    },
+    "dormantShare": 0.06,
+    "dormantWakeShare": 0.05,
+    "householdShare": 0.3,
+    "householdSharedDevice": 0.15,
+    "householdSharedDeviceAnchor": "no published rate; family members banking on one phone or tablet is the ordinary noise a shared-device rule lives with",
+    "launderingRoundShare": 0.3,
+    "launderingRoundAnchor": "no published share; S32's library holds a scenario for transactions in round amounts, so some laundering moves round sums",
+    "simSwapPerYear": 0.08,
+    "emailChangedPerYear": 0.1,
+    "notificationsOffPerYear": 0.03,
+    "genuineSecurityEventsAnchor": "no published rates; S25 names SIM swaps, changed details and alerts switched off as the takeover trail, and genuine customers make the same changes",
+    "cryptoBuyByTransferShare": 0.5,
+    "cryptoBuyByTransferAnchor": "no published split; S52 shows a UK bank recognises payments to UK crypto exchanges and limits them, so genuine customers do pay exchanges by bank transfer"
+  }
+}

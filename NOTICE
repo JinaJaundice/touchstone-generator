@@ -1,0 +1,15 @@
+Touchstone generator
+Copyright 2026 Sooraj Muhammed
+
+This product is licensed under the Apache License, Version 2.0. The full text is in the file LICENSE.
+
+This product includes code derived from AMLGentex (https://github.com/aidotse/AMLGentex), which AI Sweden published
+with Handelsbanken and Swedbank under the Apache License, Version 2.0. THIRD_PARTY_NOTICES.md names the files and
+states how each was changed.
+
+The Touchstone generator is a personal project. No employer is involved in it, and it is not affiliated with any
+bank, exchange, analytics provider or vendor.
+
+Every transaction, customer, account and wallet address that the generator makes is generated. No real customer
+data is used anywhere. The 7 Bitcoin addresses in web/src/lib/lists/ofac.json are public entries of the Specially
+Designated Nationals list of the Office of Foreign Assets Control, copied on the date that the file states.

@@ -1,0 +1,35 @@
+{
+  "name": "touchstone",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite --port 5178 --strictPort",
+    "build": "tsc -b && vite build",
+    "preview": "vite preview --port 5178 --strictPort",
+    "test": "node scripts/run-generator-tests.mjs",
+    "prose": "node scripts/prose-check.mjs --fail",
+    "a11y": "node scripts/a11y-check.mjs --fail"
+  },
+  "dependencies": {
+    "@fontsource-variable/archivo": "^5.3.0",
+    "@fontsource-variable/bitter": "^5.3.0",
+    "hyparquet-writer": "^0.16.9",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@axe-core/playwright": "^4.10.2",
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
+    "@vitejs/plugin-react": "^4.3.4",
+    "apca-w3": "^0.1.9",
+    "culori": "^4.0.2",
+    "esbuild": "^0.21.5",
+    "hyparquet": "^1.29.2",
+    "playwright": "^1.61.1",
+    "sharp": "^0.35.4",
+    "typescript": "^5.6.3",
+    "vite": "^5.4.11"
+  }
+}

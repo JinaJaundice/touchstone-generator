@@ -1,0 +1,52 @@
+{
+  "about": "The Bitcoin entries of OFAC's Specially Designated Nationals list that the generator uses, checked on the chain. The generator plants a transfer to one of them. The file holds list data and no part of the generator's mechanics, so code outside the generator may read it.",
+  "source": "S44 OFAC SDN list, sdn.csv, downloaded 2026-09-23",
+  "url": "https://www.treasury.gov/ofac/downloads/sdn.csv",
+  "sha256": "2739bd07a7401aa19930b959e3665772b900924fd54a0d63fd41d20d459f9dce",
+  "bitcoinOnList": 261,
+  "checkedOn": "mempool.space, 2026-09-23 (transaction counts above); designation dates as recorded from OFAC's recent actions",
+  "bitcoin": [
+    {
+      "entity": "SUEX OTC, S.R.O.",
+      "listedOn": "2021-09-21",
+      "address": "12HQDsicffSBaYdJ6BhnE22sfjTESmmzKx",
+      "txsOnChain": 1335
+    },
+    {
+      "entity": "SUEX OTC, S.R.O.",
+      "listedOn": "2021-09-21",
+      "address": "1L4ncif9hh9TnUveqWq77HfWWt6CJWtrnb",
+      "txsOnChain": 467
+    },
+    {
+      "entity": "SUEX OTC, S.R.O.",
+      "listedOn": "2021-09-21",
+      "address": "13mnk8SvDGqsQTHbiGiHBXqtaQCUKfcsnP",
+      "txsOnChain": 593
+    },
+    {
+      "entity": "HYDRA MARKET",
+      "listedOn": "2022-04-05",
+      "address": "3K4rjdh8A5yi6LWvft2rbmyZvqEbPSSSX4",
+      "txsOnChain": 2560
+    },
+    {
+      "entity": "HYDRA MARKET",
+      "listedOn": "2022-04-05",
+      "address": "35KAdTa2vqnJzitF2xiUzZn1Gmcas2Y465",
+      "txsOnChain": 1459
+    },
+    {
+      "entity": "SINBAD",
+      "listedOn": "2023-11-29",
+      "address": "bc1qq7p0es3dv5hcynjjf40f2xjjr6qp5py47d2f6n847vduuq9gvnyq7y9ecd",
+      "txsOnChain": 102
+    },
+    {
+      "entity": "GARANTEX EUROPE OU",
+      "listedOn": "2022-04-05",
+      "address": "3Lpoy53K625zVeE47ZasiG5jGkAxJ27kh1",
+      "txsOnChain": 4
+    }
+  ]
+}
