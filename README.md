@@ -22,7 +22,7 @@ npm run build
 npm test
 ```
 
-The dials allow up to 12,000 accounts over 180 days. At that size the 7 bank types, each with its own settings, hold between about 1.1 and 2.9 million transactions. Other dials, such as Activity, can raise the figure. Each of the 7 was made in the Chromium browser in under 30 seconds on one laptop. The browser used between about 2.2 and 4.1 GB of memory at its peak. No bank above 2.9 million transactions was tested, and no phone was tested. You can also try the generator without an install, on the Make data page at https://touchstone-tm.vercel.app/#/data. That site uses another wallet pool. Its wallet addresses differ from the addresses of this copy.
+The dials allow up to 12,000 accounts over 180 days. At that size the 7 bank types, each with its own settings, hold between about 1.1 and 2.9 million transactions. Other dials, such as Activity, can raise the figure. Each of the 7 was made in the Chromium browser in under 30 seconds on one laptop. The browser used between about 2.2 and 4.1 GB of memory at its peak. No bank above 2.9 million transactions was tested, and no phone was tested. You can also try the generator without an install at https://touchstone-generator.vercel.app, which serves a build of these files. The site is deployed by hand at present, so it may be one commit behind this repository.
 
 ## What you can set
 
