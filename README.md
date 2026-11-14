@@ -8,7 +8,7 @@ You apply your own monitoring rules or model to the data. You then mark the resu
 
 ## Run it
 
-You need Node.js 22 or later, which is the oldest version that the tests have run on. Install the packages and start the page from the `web/` folder:
+You need Node.js 22.12 or later. The build tool, Vite 8, supports no earlier version of Node.js 22. The tests have run on versions 22.23 and 24.15. Install the packages and start the page from the `web/` folder:
 
 ```
 npm ci
