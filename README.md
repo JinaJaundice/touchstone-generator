@@ -15,7 +15,7 @@ npm ci
 npm run dev
 ```
 
-The page opens at http://localhost:5178. To check a change, build the page and run the 4 generator tests:
+The page opens at http://localhost:5178. To check a change, build the page and run the 5 generator tests:
 
 ```
 npm run build
@@ -49,6 +49,8 @@ The page offers 6 downloads:
 - the settings as a JSON file
 
 `docs/DATA_DICTIONARY.md` defines every field.
+
+After a make, the page also draws one planted case as a ledger, with a column for each party, a row for each payment and a line from the payer to the payee. The page "Every crime pattern the generator can plant" lists the 38 built-in patterns, and 37 of them have a rate of their own. The page of a pattern draws the planted case that you choose, one step at a time.
 
 ## The labels
 

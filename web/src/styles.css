@@ -211,7 +211,7 @@ h1, h2, h3, h4 { margin: 0; font-weight: 500; }
 .seg-inline button.active { background: var(--ink); color: var(--paper); border-color: var(--ink); }
 .btn { display: inline-flex; align-items: center; gap: 8px; border-radius: var(--r); padding: 8px 12px; font-size: var(--t-small); font-weight: 500; line-height: 1.2; cursor: pointer; border: 1px solid var(--ink); background: transparent; color: var(--ink); white-space: nowrap; }
 .btn:hover:not(:disabled) { background: var(--panel-2); }
-.btn:disabled { opacity: 0.45; cursor: default; }
+.btn:disabled, .btn[aria-disabled="true"] { opacity: 0.45; cursor: default; }
 .btn-primary { background: var(--ink); color: var(--paper); }
 .btn-primary:hover:not(:disabled) { background: var(--muted); }
 .btn-ghost { border-color: transparent; color: var(--muted); text-decoration: underline; text-underline-offset: 3px; padding-left: 0; padding-right: 0; }
@@ -304,13 +304,53 @@ h1, h2, h3, h4 { margin: 0; font-weight: 500; }
 .tbl-dense tbody td { padding: 6px 12px 6px 0; font-size: var(--t-tiny); }
 .tbl .num { text-align: right; white-space: nowrap; padding-right: 0; padding-left: 12px; }
 .tbl thead th.num { padding-right: 0; }
+.tbl tbody th[scope="row"] { text-align: left; }
 .tbl .num + td, .tbl .num + th { padding-left: 14px; }
 .flags { white-space: nowrap; }
+
+/* --------------------------------------------------- the ledger of a case */
+/* One planted case as a ruled table: a row for each payment, grouped by step, with a line from the payer's column to the payee's column.
+   The line is solid where the bank's own records show the payment, dashed where only a chain shows it and dotted where no record shows it. */
+.flow { table-layout: fixed; min-width: calc(330px + var(--flow-cols, 2) * 64px); }
+.flow.flow-text { table-layout: auto; min-width: 0; }
+.flow col.flow-c-when { width: 96px; }
+.flow col.flow-c-how { width: 130px; }
+.flow col.flow-c-amount { width: 104px; }
+.flow thead th.flow-party { text-align: center; vertical-align: bottom; white-space: normal; overflow-wrap: anywhere; padding: 0 4px 6px; line-height: 1.25; }
+.flow thead th.flow-party { font-stretch: 80%; letter-spacing: 0.04em; }
+.flow thead th.flow-party .dot { margin-right: 6px; }
+.flow-detail { display: block; font-weight: 400; font-stretch: normal; letter-spacing: 0; text-transform: none; color: var(--faint); }
+.flow tbody td { padding: 5px 12px 5px 0; font-size: var(--t-tiny); vertical-align: top; line-height: 1.3; }
+.flow tbody td.num { padding-right: 0; padding-left: 12px; }
+.flow-sub { display: block; font-size: var(--t-micro); color: var(--faint); }
+.flow tbody td.flow-cell { position: relative; padding: 0; height: 40px; }
+.flow tbody td.flow-cell::before { content: ""; position: absolute; top: 0; bottom: 0; left: 50%; border-left: 1px solid var(--rule-soft); }
+.flow-draw { position: absolute; left: 0; top: 0; height: 100%; overflow: visible; pointer-events: none; z-index: 1; }
+.flow-line { stroke: var(--ink); stroke-width: 1.5; fill: none; }
+.flow-line.seen-chain { stroke-dasharray: 6 4; }
+.flow-line.seen-none { stroke-dasharray: 1 5; stroke-linecap: round; }
+.flow-end { fill: var(--ink); stroke: none; }
+.flow-name { position: absolute; top: 4px; left: 3px; right: 3px; text-align: center; font-size: var(--t-micro); font-stretch: 80%; line-height: 1.2; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.flow tbody tr.flow-step th { text-align: left; padding: 14px 0 6px; border-bottom: 1px solid var(--rule); font-size: var(--t-small); font-weight: 400; color: var(--ink); white-space: normal; }
+.flow tbody:first-of-type tr.flow-step th { padding-top: 10px; }
+.flow-step .caps { margin-right: 10px; }
+.flow-title { font-weight: 500; margin-right: 6px; }
+.flow-say { margin-right: 4px; }
+.flow-step .faint { margin-left: 10px; font-weight: 400; font-size: var(--t-tiny); }
+.flow tbody tr.flow-more td { padding: 6px 0; font-size: var(--t-tiny); }
+.flow-legend svg { width: 44px; height: 8px; flex: none; }
+.flow-read { margin: 0 0 10px; max-width: 80ch; font-size: var(--t-small); color: var(--muted); }
+.flow-compact tbody td { padding-top: 6px; padding-bottom: 6px; }
+.flow-compact .flow-l1, .flow-compact .flow-l2 { display: block; }
+.flow-compact .flow-l2 { color: var(--ink); }
+.flow-compact td.flow-amount { white-space: nowrap; }
+.flow-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin: 0 0 12px; }
 
 /* the line of four steps over the live feed, and the one-choice run control */
 .steps-line { display: flex; flex-wrap: wrap; gap: 4px 18px; list-style: none; padding: 0 0 8px; margin: 0 0 10px; border-bottom: 1px solid var(--rule-soft); font-size: var(--t-micro); text-transform: uppercase; letter-spacing: 0.04em; color: var(--faint); }
 .steps-line li { padding-bottom: 2px; border-bottom: 2px solid transparent; }
 .steps-line li.on { color: var(--ink); border-bottom-color: var(--gold); }
+select.select:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
 select.select { font: inherit; font-size: var(--t-small); padding: 5px 28px 5px 9px; border: 1px solid var(--rule); background: var(--panel); color: var(--ink); max-width: 100%; }
 .message-row > td { padding: 0 0 10px !important; background: var(--panel-2); }
 .message-row .message { margin: 0; border-left-width: 3px; position: sticky; left: 0; max-width: min(760px, calc(100vw - 64px)); box-sizing: border-box; }

@@ -1,10 +1,12 @@
 import { Fragment, useMemo, useState } from "react";
 import { useGenStore as useStore } from "../lib/genStore";
 import { BankBuilder } from "./BankBuilder";
-import { TYPOLOGY_FAMILY, TYPOLOGY_SHORT, type Dataset, type Tx, type Typology } from "../lib/gen/types";
+import { patternFamily, patternShort, type Dataset, type Tx } from "../lib/gen/types";
+import { caseView, listCases, pickCase } from "../lib/gen/caseView";
+import { FlowLedger } from "../lib/flow";
 import { Button, Card, Disclosure, Doc, Empty, NextStep, PageHead, Pill, Section, Seg, StatBand, Working, type ContentsItem } from "../lib/ui";
 import { BarList, FAMILY_ORDER, FAMILY_WORD, LogHistogram, familyTone } from "../lib/viz";
-import { fmtGbp, fmtGbpShort, fmtInt, fmtMinute, fmtPct } from "../lib/format";
+import { METHOD_SHORT, RAIL_LABEL, dayLabel, fmtGbp, fmtGbpShort, fmtInt, fmtMinute, fmtPct, plural } from "../lib/format";
 import { ACCOUNT_COLUMNS, TX_COLUMNS, accountCell, accountsParquet, txCell, txParquet } from "../lib/gen/parquet";
 import { messageText, renderMessage } from "../lib/gen/message";
 import { makeCalendar } from "../lib/gen/calendar";
@@ -13,13 +15,6 @@ import { makeCalendar } from "../lib/gen/calendar";
    type, read what you get, make it, then read what you got and go on to Test
    rules. Level two: every other dial, the exact values, the risk assessment,
    the rails and amounts, the transaction log, the downloads. */
-
-const RAIL_LABEL: Record<string, string> = { FPS: "Faster Payments", BACS: "Bacs", CHAPS: "CHAPS", CARD: "Card", CASH: "Cash", INTL: "SWIFT", CRYPTO: "Bitcoin", INTERNAL: "Internal" };
-const METHOD_SHORT: Record<string, string> = { "standing-order": "standing order", "forward-dated": "set for a date", "direct-debit": "Direct Debit", "bacs-credit": "Bacs credit", "card-chip": "chip and PIN", "card-contactless": "contactless", "card-online": "online", "card-magstripe": "magnetic stripe", atm: "cash machine", counter: "counter", "partner-counter": "Post Office" };
-const DOW = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-const MON = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-/** A day of the data set as its calendar date: "Mon 6 Jul". */
-const dayLabel = (date: string, weekday: number) => { const [, m, d] = date.split("-").map(Number); return `${DOW[weekday]} ${d} ${MON[m - 1]}`; };
 
 const CONTENTS: ContentsItem[] = [
   { id: "type", n: "1", title: "Choose a bank type" },
@@ -100,7 +95,11 @@ export function Generate({ text }: { text?: Partial<GenerateText> } = {}) {
     return { all, marked };
   }, [ds]);
 
-  const typRows = useMemo(() => ds ? Object.entries(ds.summary.byTypology).map(([k, v]) => ({ key: k as Typology, ...v })).sort((a, b) => b.instances - a.instances) : [], [ds]);
+  const typRows = useMemo(() => ds ? Object.entries(ds.summary.byTypology).map(([k, v]) => ({ key: k, ...v })).sort((a, b) => b.instances - a.instances) : [], [ds]);
+  const caseList = useMemo(() => (ds ? listCases(ds) : []), [ds]);
+  const caseCount = caseList.length;
+  const shownCase = useMemo(() => pickCase(caseList), [caseList]);
+  const shownView = useMemo(() => (ds && shownCase ? caseView(ds, shownCase.caseId) : null), [ds, shownCase]);
   const cust = (i: number, t?: Tx) => i === -2 ? (t?.type === "INCOME" ? "outside (credit)" : "outside") : i === -1 ? (t?.type === "SPEND" ? "merchant" : t?.type === "CASH_OUT" ? "cash" : "outside") : i <= -1000 ? (t?.wallet ? t.wallet.slice(0, 10) + "…" : "wallet") : ds?.accounts[i]?.customerId ?? String(i);
 
   return (
@@ -120,18 +119,27 @@ export function Generate({ text }: { text?: Partial<GenerateText> } = {}) {
               { label: "accounts used for laundering", value: fmtInt(ds.summary.sarAccounts), sub: fmtPct(ds.summary.sarAccounts / ds.summary.accounts, 1) + " of all accounts", tone: "missed" },
               { label: "fraud victims and mules", value: fmtInt(ds.summary.fraudAccounts), tone: "noise" },
             ]} />
+            <Card title="A planted case, drawn">
+              {shownView && cal ? (
+                <>
+                  <p className="faint" style={{ marginTop: 0 }}>{shownView.title}, case {shownView.caseId}, one of {fmtInt(caseCount)} planted cases. It has {plural(shownView.rows.length, "payment")} between {plural(shownView.parties.length, "party", "parties")} and moved {fmtGbp(shownView.value)}.</p>
+                  <FlowLedger view={shownView} shown={null} cal={cal} />
+                </>
+              ) : <p style={{ marginTop: 0 }}>No crime pattern was planted in this data set.</p>}
+              <p><a className="link" href="#/data/patterns">See every pattern and step through a case</a></p>
+            </Card>
             <Disclosure id="patterns" title="The planted crime patterns" sub="each kind, how many were planted, and the accounts, transactions and value they carry" count={`${fmtInt(ds.summary.patterns)} patterns`}>
               <div className="tbl-wrap" tabIndex={0}>
                 <table className="tbl tbl-dense">
                   <thead><tr><th>Crime pattern</th><th className="num">Planted</th><th className="num">Accounts</th><th className="num">Transactions</th><th className="num">Value</th></tr></thead>
                   <tbody>
                     {typRows.map((r) => (
-                      <tr key={r.key}><td><FamilyDot k={r.key} />{TYPOLOGY_SHORT[r.key]}</td><td className="num val">{r.instances}</td><td className="num val">{r.accounts}</td><td className="num val">{r.txs}</td><td className="num val">{fmtGbpShort(r.total)}</td></tr>
+                      <tr key={r.key}><td><FamilyDot k={r.key} /><a className="link" href={"#/data/patterns/" + r.key}>{patternShort(r.key)}</a></td><td className="num val">{r.instances}</td><td className="num val">{r.accounts}</td><td className="num val">{r.txs}</td><td className="num val">{fmtGbpShort(r.total)}</td></tr>
                     ))}
                   </tbody>
                 </table>
               </div>
-              <div className="legend">{FAMILY_ORDER.filter((f) => typRows.some((r) => TYPOLOGY_FAMILY[r.key] === f)).map((f) => <span key={f}><span className={`dot ${familyTone(f)}`} />{FAMILY_WORD[f]}</span>)}</div>
+              <div className="legend">{FAMILY_ORDER.filter((f) => typRows.some((r) => patternFamily(r.key) === f)).map((f) => <span key={f}><span className={`dot ${familyTone(f)}`} />{FAMILY_WORD[f]}</span>)}</div>
             </Disclosure>
             <Disclosure id="shape" title="Rails and amounts" sub="how the transactions split by rail, and where the planted ones sit among all the amounts" count={`${Object.keys(ds.summary.byRail).length} rails`}>
               <div className="grid cols-2">
@@ -157,7 +165,7 @@ export function Generate({ text }: { text?: Partial<GenerateText> } = {}) {
                         <td className="val">{cal ? dayLabel(cal.date(t.day), cal.weekday(t.day)) : t.day + 1}</td><td className="val">{fmtMinute(t.minute)}</td><td>{t.type.toLowerCase().replace("_", " ")}</td><td>{RAIL_LABEL[t.rail] ?? t.rail}{METHOD_SHORT[t.method] ? <span className="faint">, {METHOD_SHORT[t.method]}</span> : null}{t.rail === "INTL" && t.currency !== "GBP" ? <span className="faint"> in {t.currency}</span> : null}</td>
                         <td className="val">{cust(t.orig, t)}</td><td className="val">{cust(t.dest, t)}</td><td className="num val">{fmtGbp(t.amount)}</td><td className="val">{t.country}</td>
                         <td className="flags">{t.status === "declined" && <Pill tone="noise">declined</Pill>}{t.newPayee && <Pill>first payment</Pill>}{t.session?.newDevice && <Pill tone="noise">new device</Pill>}{t.session?.callActive && <Pill tone="noise">on a call</Pill>}{t.session?.remoteAccess && <Pill tone="noise">remote access</Pill>}{(t.payee?.cop === "no-match" || t.payee?.cop === "close-match") && <Pill tone="noise">name {t.payee.cop === "no-match" ? "no match" : "close match"}</Pill>}{t.recentCredentialChange && <Pill tone="noise">details changed</Pill>}{t.card?.mcc && <Pill>MCC {t.card.mcc}</Pill>}{t.crypto && t.crypto.label === "illicit" && <Pill tone="missed">wallet labelled illicit</Pill>}{t.crypto?.label === "listed" && <Pill tone="missed">on OFAC's list</Pill>}</td>
-                        <td>{t.typology ? <Pill tone="missed">{TYPOLOGY_SHORT[t.typology] ?? t.typology.replace(/_/g, " ")}</Pill> : <span className="faint">ordinary</span>}</td>
+                        <td>{t.typology ? <Pill tone="missed">{patternShort(t.typology)}</Pill> : <span className="faint">ordinary</span>}</td>
                         <td><button type="button" className="link-btn" onClick={() => setPicked(picked === t.id ? null : t.id)} aria-expanded={picked === t.id}>{picked === t.id ? "Close" : "Message"}</button></td>
                       </tr>
                       {picked === t.id && message && (
@@ -204,6 +212,6 @@ export function Generate({ text }: { text?: Partial<GenerateText> } = {}) {
   );
 }
 
-function FamilyDot({ k }: { k: Typology }) {
-  return <span className={`dot ${familyTone(TYPOLOGY_FAMILY[k] ?? "aml")}`} style={{ marginRight: 8 }} />;
+function FamilyDot({ k }: { k: string }) {
+  return <span className={`dot ${familyTone(patternFamily(k))}`} style={{ marginRight: 8 }} />;
 }

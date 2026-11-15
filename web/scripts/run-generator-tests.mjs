@@ -13,6 +13,7 @@ const tests = [
   { name: "smoke-parquet", args: [] },
   { name: "smoke-hidden", args: [] },
   { name: "smoke-calibrate", args: [] },
+  { name: "smoke-caseview", args: [] },
 ];
 
 for (const t of tests) {

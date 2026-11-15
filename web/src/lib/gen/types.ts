@@ -514,6 +514,19 @@ export const CRYPTO_TYPOLOGIES: CryptoTypology[] = ["offramp_layering", "travel_
 export const ALL_TYPOLOGIES = Object.keys(TYPOLOGY_FAMILY) as Typology[];
 export const typologiesOf = (families: Family[]): Typology[] => ALL_TYPOLOGIES.filter((t) => families.includes(TYPOLOGY_FAMILY[t]));
 
+/** The full name of a crime pattern. For a key that is not one of the 38 built-in names it gives the key itself. A later phase adds the keys of library patterns, which start with "lib.". */
+export function patternLabel(key: string): string {
+  return Object.prototype.hasOwnProperty.call(TYPOLOGY_LABEL, key) ? TYPOLOGY_LABEL[key as Typology] : key;
+}
+/** The short name of a crime pattern. For a key that is not one of the 38 built-in names it gives the key itself. A later phase adds the keys of library patterns, which start with "lib.". */
+export function patternShort(key: string): string {
+  return Object.prototype.hasOwnProperty.call(TYPOLOGY_SHORT, key) ? TYPOLOGY_SHORT[key as Typology] : key;
+}
+/** The family of a crime pattern. For a key that is not one of the 38 built-in names it gives "aml". A later phase adds the keys of library patterns, which start with "lib.". */
+export function patternFamily(key: string): Family {
+  return Object.prototype.hasOwnProperty.call(TYPOLOGY_FAMILY, key) ? TYPOLOGY_FAMILY[key as Typology] : "aml";
+}
+
 /* Countries, in four pools the bank builder mixes.
 
    Since 30 June 2026 regulation 33(1)(b) of the Money Laundering Regulations

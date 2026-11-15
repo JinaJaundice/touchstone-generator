@@ -7,7 +7,7 @@ This directory is the entry of the generator on its own. It renders the Make dat
 ## Interface
 
 - `main.tsx`: mounts `GeneratorApp` into the element `root` of the entry page. The entry page is `web/generator.html` in the working repository and `web/index.html` in the public copy.
-- `GeneratorApp.tsx`: the default export `GeneratorApp`. It renders `Masthead`, `DataStrip`, `Generate` and `Foot` with their default texts, which are the texts of this page, and it passes the footer line through the property `line` of `Foot`.
+- `GeneratorApp.tsx`: the default export `GeneratorApp`. It renders `Masthead`, `DataStrip`, `Generate` and `Foot` with their default texts, which are the texts of this page, and it passes the footer line through the property `line` of `Foot`. The app renders the 2 patterns pages (`#/data/patterns` and `#/data/patterns/<key>`) from `Patterns` beside the Make data page, and every other address shows Make data.
 
 ## Invariants
 

@@ -32,4 +32,12 @@ export const fmtUnit = (unit: string, v: number) => {
     default: return String(v);
   }
 };
+/** The name of each rail as the transaction log shows it. */
+export const RAIL_LABEL: Record<string, string> = { FPS: "Faster Payments", BACS: "Bacs", CHAPS: "CHAPS", CARD: "Card", CASH: "Cash", INTL: "SWIFT", CRYPTO: "Bitcoin", INTERNAL: "Internal" };
+/** The short words for a payment method that needs more than its rail. */
+export const METHOD_SHORT: Record<string, string> = { "standing-order": "standing order", "forward-dated": "set for a date", "direct-debit": "Direct Debit", "bacs-credit": "Bacs credit", "card-chip": "chip and PIN", "card-contactless": "contactless", "card-online": "online", "card-magstripe": "magnetic stripe", atm: "cash machine", counter: "counter", "partner-counter": "Post Office" };
+const DOW = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+const MON = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+/** A day of the data set as its calendar date: "Mon 6 Jul". */
+export const dayLabel = (date: string, weekday: number) => { const [, m, d] = date.split("-").map(Number); return `${DOW[weekday]} ${d} ${MON[m - 1]}`; };
 export const plural = (n: number, one: string, many = one + "s") => `${fmtInt(n)} ${n === 1 ? one : many}`;

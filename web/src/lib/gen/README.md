@@ -15,7 +15,8 @@ This directory is the synthetic data generator. It builds a seeded UK bank (acco
 - `archetypes.ts`: the seven bank archetypes, the `DIALS`, `DIFFICULTY`, `estimate`, `stats`, and the share-link and saved-bank functions `encodeBank`, `decodeBank`, `loadSavedBanks` and `storeSavedBanks`.
 - `calibrate.ts`: `calibrate`, `readFigures` and `figuresTemplate` (format `touchstone-figures/1`).
 - `dictionary.ts`: the field specifications and `checkRecord`. `message.ts`: `renderMessage` and `messageText`. `parquet.ts`: `txParquet` and `accountsParquet`. `fingerprint.ts`: `fingerprint(ds)`.
-- Data files: `sources.json` holds every figure the generator is calibrated to, with its register identifier.
+- `caseView.ts`: the data of a drawn case, with no React and no DOM. `listCases(ds)` lists the planted cases, `caseView(ds, caseId)` turns one into parties and legs, `flowColumns` gives the columns of its drawing, `caseSteps`, `stepTitle`, `pickCase`, `patternCases` and `patternSteps(ds, key, own?)` give its steps and the steps of a pattern in the order of the largest case, `partyName` gives the full name of a party for a row, and `ROLE_WORD` names the roles.
+- Data files: `sources.json` holds every figure the generator is calibrated to, with its register identifier. `patterns/references.json` holds the identifier and title of each source that a file of this directory cites, and `scripts/write-references.ts` writes it in the working repository. Each title is the text of the row of that source in `public-copy/docs/SOURCES.md`, up to its first full stop.
 - The shared helpers `rng.ts` and `stats.ts` are in `web/src/lib/`. The screening list `lib/lists/ofac.json` has no README because it holds data only.
 
 ## Invariants

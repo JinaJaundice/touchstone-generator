@@ -21,10 +21,10 @@ export interface FieldSpec {
 }
 
 export const LEG_ROLE: Record<string, string> = {
-  placement: "money arriving in a laundering pattern: cash paid in, or a credit from outside",
-  funding: "money arriving so a sanctions or fraud pattern's payment can settle: the customer's own funds, no crime step",
+  placement: "money arriving in a laundering pattern, as cash paid in or as a credit from outside the bank",
+  funding: "the customer's own money arriving before a payment of a sanctions or fraud pattern, which is no step of the crime",
   layering: "money moving between two accounts inside a laundering pattern",
-  integration: "money leaving a laundering pattern to the world outside the data set",
+  integration: "money leaving a laundering pattern for somewhere outside the bank",
   "victim-payment": "a push payment a scam victim made to the criminal's account",
   "account-drain": "a payment out of a taken-over account, made by the criminal",
   "card-test": "a small payment a criminal makes to check stolen card details work",
