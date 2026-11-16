@@ -1,0 +1,166 @@
+{
+  "schema": "touchstone-part/1",
+  "id": "otc-desk-payout",
+  "kind": "cash-out",
+  "status": "tested",
+  "family": "aml",
+  "title": "Sold to an over-the-counter desk and paid into a bank account",
+  "short": "OTC desk pay-out",
+  "summary": "The launderer sells the whole sum to an over-the-counter desk in one deal. The desk pays a bank account, and most of the money is then sent on.",
+  "references": [
+    {
+      "id": "S57",
+      "pages": "33, 34"
+    }
+  ],
+  "takes": "any",
+  "entry": "desk",
+  "parties": [
+    {
+      "id": "desk",
+      "kind": "otc-desk",
+      "label": "an over-the-counter desk",
+      "reuse": "case"
+    },
+    {
+      "id": "holder",
+      "kind": "customer",
+      "role": "launderer",
+      "label": "the account holder at the bank",
+      "count": [
+        1,
+        1
+      ],
+      "pick": {
+        "segments": [
+          "private",
+          "sme"
+        ]
+      }
+    },
+    {
+      "id": "onward",
+      "kind": "outside-account",
+      "label": "an account at another bank",
+      "reuse": "case",
+      "country": "ordinary"
+    }
+  ],
+  "steps": [
+    {
+      "id": "deal",
+      "kind": "move",
+      "say": "The launderer sells the whole sum to the desk in one deal.",
+      "from": "desk",
+      "to": "desk",
+      "via": "off-record",
+      "asset": "in",
+      "amount": {
+        "of": "held",
+        "share": [
+          1,
+          1
+        ]
+      },
+      "start": {
+        "after": "entry",
+        "hours": [
+          1,
+          24
+        ]
+      },
+      "need": "required",
+      "varies": "rotating",
+      "basis": {
+        "kind": "reported",
+        "ref": "S57",
+        "pages": "33, 34",
+        "note": "The report describes a large block sold in one deal away from the public market of an exchange. The wait is assumed."
+      }
+    },
+    {
+      "id": "payout",
+      "kind": "move",
+      "say": "The desk pays the account at the bank from its own business account.",
+      "from": "desk",
+      "to": "holder",
+      "via": "fps",
+      "asset": "GBP",
+      "amount": {
+        "of": "held",
+        "share": [
+          0.97,
+          0.995
+        ]
+      },
+      "split": "uneven",
+      "times": [
+        1,
+        2
+      ],
+      "start": {
+        "after": "deal",
+        "hours": [
+          4,
+          72
+        ]
+      },
+      "between": {
+        "days": [
+          0,
+          2
+        ]
+      },
+      "need": "required",
+      "varies": "rotating",
+      "legRole": "integration",
+      "basis": {
+        "kind": "reported",
+        "ref": "S57",
+        "pages": "34",
+        "note": "The report says that the desk settles through its own banking relationships. The desk's margin of 0.5% to 3%, the count of payments and the waits are assumed. The account holder is a private client or a small firm, which is also assumed."
+      }
+    },
+    {
+      "id": "sendOn",
+      "kind": "move",
+      "say": "The account holder sends most of the money on.",
+      "from": "holder",
+      "to": "onward",
+      "via": "fps",
+      "asset": "GBP",
+      "amount": {
+        "of": "held",
+        "share": [
+          0.5,
+          0.9
+        ]
+      },
+      "split": "uneven",
+      "times": [
+        1,
+        3
+      ],
+      "start": {
+        "after": "payout",
+        "days": [
+          1,
+          5
+        ]
+      },
+      "between": {
+        "days": [
+          0,
+          2
+        ]
+      },
+      "need": "required",
+      "varies": "rotating",
+      "legRole": "layering",
+      "basis": {
+        "kind": "assumed",
+        "note": "The report does not describe what the account holder does next. The share and the wait follow the built-in pattern for money that comes in and goes straight out."
+      }
+    }
+  ]
+}

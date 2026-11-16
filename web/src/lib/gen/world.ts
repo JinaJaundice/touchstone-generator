@@ -16,8 +16,8 @@
 
 import { lognormal, normal, rint, truncNormal, weightedPick, type Rng } from "../rng";
 import type {
-  Account, AccountEvent, Adjustment, AccountRole, CardFacts, CryptoFacts, Family, GenConfig, LegRole, Method, PatternInstance,
-  PayeeFacts, Rail, SessionFacts, Tx, TxType, Typology, WalletClass, WalletRef,
+  Account, AccountEvent, Adjustment, AccountRole, CardFacts, CaseLeg, CryptoFacts, Family, GenConfig, LegRole, LibraryRecord, Method, Party, PatternInstance,
+  PatternKey, PayeeFacts, Rail, SessionFacts, Tx, TxType, WalletClass, WalletRef,
 } from "./types";
 import { CURRENCY_OF, HIGH_RISK_COUNTRIES, MEDIUM_RISK_COUNTRIES, ORDINARY_COUNTRIES } from "./types";
 import { pickCountry } from "./population";
@@ -36,7 +36,7 @@ export interface Scheduled {
   wallet?: string | null;
   walletClass?: WalletClass | null;
   patternId: number;
-  typology: Typology | null;
+  typology: PatternKey | null;
   family: Family | null;
   role?: LegRole | null;
   caseId?: number;
@@ -65,6 +65,8 @@ export interface Scheduled {
   merchant?: string;
   threeDS?: CardFacts["threeDS"];
   crypto?: Partial<CryptoFacts>;
+  /** a leg of a library case: the case number and the leg's number in it. World.emit tells the planter (onLibraryLeg) when the leg is written or refused */
+  leg?: { caseId: number; seq: number };
 }
 
 export const TYPICAL_TRANSFER: Record<Account["segment"], number> = {
@@ -134,6 +136,11 @@ export class World {
   private nextTx = 0;
   nextPattern = 0;
   nextCase = 0;
+  /** the library planter (patterns/plant.ts): the parties and the legs of the answer key, the record of what it planted, and the function that hears of each leg of a library case */
+  parties: Party[] = [];
+  caseLegs: CaseLeg[] = [];
+  library: LibraryRecord | null = null;
+  onLibraryLeg?: (s: Scheduled, tx: Tx | null) => void;
 
   constructor(cfg: GenConfig, r: Rng, cal: Calendar, accounts: Account[], wallets: WalletRef[], banks: string[],
     beneficiaries: number[][]) {
@@ -176,11 +183,11 @@ export class World {
     }
   }
 
-  /** Put a leg on the day it can run: Bacs and CHAPS only on working days, CHAPS inside its hours, a counter in branch hours. Returns false when the rail's next slot falls after the period. */
-  schedule(s: Scheduled) {
-    if (s.day < 0 || s.day >= this.cfg.days) return;
+  /** Put a leg on the day it can run: Bacs and CHAPS only on working days, CHAPS inside its hours, a counter in branch hours. Returns true where it queued the leg and false at each of 3 early returns: a day outside the period, a payment of an account to itself and a slot of the rail after the period. */
+  schedule(s: Scheduled): boolean {
+    if (s.day < 0 || s.day >= this.cfg.days) return false;
     // an account never pays itself
-    if (s.from >= 0 && s.from === s.to) return;
+    if (s.from >= 0 && s.from === s.to) return false;
     this.homeIfNoAbroad(s);
     const m = this.methodFor(s);
     s.method = m;
@@ -197,8 +204,9 @@ export class World {
       s.day = d;
       s.minute = Math.max(540, Math.min(1020, s.minute));
     }
-    if (s.day >= this.cfg.days) return;
+    if (s.day >= this.cfg.days) return false;
     this.byDay[s.day].push(s);
+    return true;
   }
   scheduledOn(day: number): Scheduled[] {
     return this.byDay[day].sort((a, b) => a.minute - b.minute);
@@ -307,7 +315,7 @@ export class World {
   /* ---------------------------------------------------------- devices and security events */
 
   /** Record a security event on an account. A password, phone or email change, a new device and a SIM swap all count as a change of credentials. */
-  event(acc: number, day: number, minute: number, kind: AccountEvent["kind"], opts: { deviceId?: string; ipCountry?: string; patternId?: number; typology?: Typology | null } = {}) {
+  event(acc: number, day: number, minute: number, kind: AccountEvent["kind"], opts: { deviceId?: string; ipCountry?: string; patternId?: number; typology?: PatternKey | null } = {}) {
     if (day < 0 || day >= this.cfg.days) return;
     const ev: AccountEvent = { account: acc, day, minute, kind, deviceId: opts.deviceId ?? null, ipCountry: opts.ipCountry ?? this.accounts[acc].country, patternId: opts.patternId ?? -1, typology: opts.typology ?? null };
     this.events.push(ev);
@@ -352,7 +360,7 @@ export class World {
 
   /** Laundering funds arriving, so a scheduled leg can settle. Visible as a cash deposit or an unexplained credit when the run says so. */
   fund(acc: number, needed: number, day: number, minute: number, how: "cash" | "credit",
-    patternId: number, typology: Typology | null, family: Family | null, silent = false, caseId = -1) {
+    patternId: number, typology: PatternKey | null, family: Family | null, silent = false, caseId = -1) {
     const shortfall = needed - this.bal[acc];
     if (shortfall <= 0) return;
     // money arriving for a laundering pattern is placement; for a sanctions or fraud pattern it is the customer's own funding, no crime step
@@ -387,7 +395,14 @@ export class World {
     }
   }
 
+  /** Write a leg. A leg of a library case also tells the planter what happened to it, with the transaction or null. This wrapper draws no random number. */
   emit(s: Scheduled): Tx | null {
+    const tx = this.emitLeg(s);
+    if (s.leg && this.onLibraryLeg) this.onLibraryLeg(s, tx);
+    return tx;
+  }
+
+  private emitLeg(s: Scheduled): Tx | null {
     this.homeIfNoAbroad(s);
     const from = s.from, to = s.to;
     if (from >= 0 && !this.isOpen(from, s.day)) return null;
@@ -473,9 +488,9 @@ export class World {
         : own || amount < line ? "not-required" : this.r() < 0.9 ? "requested-received" : "requested-not-received");
       crypto = {
         chain: "bitcoin",
-        label: listed ? "listed" : ref?.label ?? "unknown",
-        predicted: listed ? null : ref?.predicted ?? null,
-        confidence: listed ? null : ref?.conf ?? null,
+        label: s.crypto?.label !== undefined ? s.crypto.label : listed ? "listed" : ref?.label ?? "unknown",
+        predicted: s.crypto?.predicted !== undefined ? s.crypto.predicted : listed ? null : ref?.predicted ?? null,
+        confidence: s.crypto?.confidence !== undefined ? s.crypto.confidence : listed ? null : ref?.conf ?? null,
         counterparty: kind,
         travelRule,
         ownershipProven: s.crypto?.ownershipProven ?? (kind === "self-hosted" ? own : null),
@@ -531,7 +546,7 @@ export class World {
     return { cpRef, newPayee, session, payee, card, crypto };
   }
 
-  newPattern(typology: Typology, family: Family, accounts: number[], main: number,
+  newPattern(typology: PatternKey, family: Family, accounts: number[], main: number,
     startDay: number, endDay: number, story: string, opts: { caseId?: number; roles?: Record<number, AccountRole>; sources?: string[] } = {}): PatternInstance {
     const p: PatternInstance = {
       id: this.nextPattern++, typology, family, caseId: opts.caseId ?? this.nextCase++, accounts: [...new Set(accounts)], main,

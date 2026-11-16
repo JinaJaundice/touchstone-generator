@@ -1,12 +1,15 @@
 // Test of the case view (src/lib/gen/caseView.ts): makes 3 data sets with the working wallet pool and checks, for
 // each, that every planted case becomes a view whose legs, parties and columns agree with the records.
-// It also checks the 3 functions that name a pattern, the 3 branches of pickCase, the columns of 4 hand-made cases and partyName. It exits with code 1 unless every statement holds.
+// It also checks the 3 functions that name a pattern, the 3 branches of pickCase, the columns of 4 hand-made cases and partyName.
+// Then it makes 2 data sets with library patterns on and checks the list, the payments, the steps and the columns of their cases and the typical case of each pattern. It exits with code 1 unless every statement holds.
 //   npx esbuild scripts/smoke-caseview.ts --bundle --platform=node --format=esm --outfile=.tmp/smoke-caseview.mjs && node .tmp/smoke-caseview.mjs
 import { readFileSync } from "node:fs";
 import { generate, readWalletPool } from "../src/lib/gen/generate";
 import { DEFAULT_CONFIG } from "../src/lib/gen/config";
-import { ARCHETYPES } from "../src/lib/gen/archetypes";
-import { caseSteps, caseView, flowColumns, listCases, partyName, patternCases, patternSteps, pickCase, stepTitle, type CaseSummary, type CaseView, type FlowLeg, type FlowParty } from "../src/lib/gen/caseView";
+import { ARCHETYPES, libraryCountText, libraryRateText } from "../src/lib/gen/archetypes";
+import { DRAWN_COLUMNS, caseSteps, ledgerDotY, mergeReferences, splitShortAddress, caseView, flowColumns, librarySteps, listCases, memberRef, partyName, patternCases, patternSteps, pickCase, stepTitle, typicalCaseView, withinLabel, type CaseSummary, type CaseView, type FlowLeg, type FlowParty } from "../src/lib/gen/caseView";
+import { PARTS, patternOf } from "../src/lib/gen/patterns/index";
+import { labelsOf } from "../src/lib/gen/patterns/labels";
 import { patternFamily, patternLabel, patternShort, TYPOLOGY_LABEL, TYPOLOGY_SHORT, type AccountRole, type Dataset, type WalletRef } from "../src/lib/gen/types";
 
 const wallets: WalletRef[] = readWalletPool(JSON.parse(readFileSync(new URL("../public/wallet_pool.json", import.meta.url), "utf8")));
@@ -278,7 +281,7 @@ for (const [name, ds] of sets) {
   for (const [id, v] of views) {
     const cols = flowColumns(v);
     tally.set(cols.length, (tally.get(cols.length) ?? 0) + 1);
-    if (cols.length > 12) beyond++;
+    if (cols.length > DRAWN_COLUMNS) beyond++;
     const at = new Map<string, number>();
     cols.forEach((c, i) => c.parties.forEach((k) => at.set(k, i)));
     const paid = new Set<number>();
@@ -297,7 +300,251 @@ for (const [name, ds] of sets) {
   report("14 a column that holds more than one party holds more than 3", first);
 
   console.log(`  figures: ${cases.length} cases, most legs in a case ${Math.max(0, ...cases.map((c) => c.legs))}, most columns ${mostColumns}`);
-  console.log(`  columns: ${[...tally.entries()].sort((a, b) => a[0] - b[0]).map(([n, k]) => `${n} columns: ${k} cases`).join(", ")}; more than 12 columns: ${beyond} cases`);
+  console.log(`  columns: ${[...tally.entries()].sort((a, b) => a[0] - b[0]).map(([n, k]) => `${n} columns: ${k} cases`).join(", ")}; more than ${DRAWN_COLUMNS} columns: ${beyond} cases`);
+}
+
+// library cases: a data set with both library patterns on, the ransom pattern at both ends, at the top rate in a short run so that some payments do not happen
+console.log("library cases");
+{
+  const lib = {
+    "ransom-through-a-mixer": { on: true, per1k: 5, size: 1, speed: 0.25, bankSees: "both" as const },
+    "stolen-funds-through-a-peel-chain": { on: true, per1k: 5, size: 1, speed: 0.25, bankSees: "cash-out" as const },
+  };
+  const ds = generate({ ...DEFAULT_CONFIG, seed: 20260904, accounts: 1200, days: 28, library: lib }, wallets);
+  const cases = listCases(ds);
+  const libCases = ds.library?.cases ?? [];
+  const mine = cases.filter((c) => libCases.some((e) => e.caseId === c.caseId));
+  let first: string | null = null;
+
+  // L1
+  const rowsOf = new Map<number, number>();
+  for (const l of ds.caseLegs) rowsOf.set(l.caseId, (rowsOf.get(l.caseId) ?? 0) + 1);
+  if (mine.length !== libCases.length || libCases.length === 0) first = `${mine.length} entries for ${libCases.length} library cases`;
+  for (const e of libCases) {
+    const c = cases.find((x) => x.caseId === e.caseId);
+    if (!c) { first ??= `case ${e.caseId} is not listed`; continue; }
+    const planted = ds.patterns.filter((p) => p.caseId === e.caseId);
+    if (c.title !== patternOf(e.pattern)!.title) first ??= `case ${e.caseId} title ${c.title}`;
+    if (c.value !== e.value || c.startDay !== e.startDay) first ??= `case ${e.caseId} value or first day differs from the record`;
+    if (c.legs !== rowsOf.get(e.caseId)) first ??= `case ${e.caseId} has ${c.legs} payments for ${rowsOf.get(e.caseId)} rows`;
+    if (c.keys.length !== new Set(planted.map((p) => p.typology)).size || planted.some((p) => !c.keys.includes(p.typology) || !c.families.includes(p.family))) first ??= `case ${e.caseId} keys or families differ from its planted patterns`;
+  }
+  if (cases.length !== new Set(ds.patterns.filter((p) => p.caseId >= 0).map((p) => p.caseId)).size) first ??= "the list does not hold one entry for each planted case";
+  report("L1 one entry for each library case with the fields of the record", first);
+
+  // L2
+  first = null;
+  const views = new Map<number, CaseView>();
+  for (const e of libCases) {
+    const v = caseView(ds, e.caseId);
+    if (!v) { first ??= `no view for case ${e.caseId}`; continue; }
+    views.set(e.caseId, v);
+    const legs = ds.caseLegs.filter((l) => l.caseId === e.caseId).sort((a, b) => a.seq - b.seq);
+    if (legs.length !== v.rows.length) { first ??= `case ${e.caseId} has ${v.rows.length} rows for ${legs.length} legs`; continue; }
+    legs.forEach((l, i) => {
+      const r = v.rows[i];
+      if (r.step !== `${l.part}.${l.step}` || r.say !== l.say || r.how !== l.via || r.from !== l.from || r.to !== l.to || r.day !== l.day || r.minute !== l.minute || r.tx !== l.tx) first ??= `case ${e.caseId} row ${i} differs from its leg`;
+      if (i > 0 && legs[i - 1].seq >= l.seq) first ??= `case ${e.caseId} legs are not in the order of seq`;
+    });
+  }
+  report("L2 the payments of a library case are its rows in the order of seq, with part, step, sentence and way of paying", first);
+
+  // L3
+  first = null;
+  for (const [id, v] of views) {
+    const names = new Set(librarySteps(libCases.find((e) => e.caseId === id)!.pattern).map((s) => s.step));
+    for (const r of v.rows) {
+      const tail = r.step.slice(r.step.lastIndexOf(".") + 1);
+      if (!names.has(r.step) && tail !== "handoff") first ??= `case ${id} row ${r.seq} names the step ${r.step}`;
+      const words = tail.replace(/([a-z])([A-Z])/g, "$1 $2").replace(/-/g, " ").toLowerCase();
+      if (stepTitle(r.step) !== (tail === "handoff" ? "Hand-off" : words.charAt(0).toUpperCase() + words.slice(1))) first ??= `the title of ${r.step} is ${stepTitle(r.step)}`;
+    }
+    if (caseSteps(v).length !== new Set(v.rows.map((r) => r.step)).size) first ??= `case ${id} steps differ from its distinct steps`;
+  }
+  report("L3 each step is a step of the files or a hand-off, and its title is the step id in words", first);
+
+  // L4
+  first = null;
+  const seen = new Set<string>();
+  for (const v of views.values()) for (const r of v.rows) seen.add(r.seenBy);
+  for (const k of ["bank", "chain", "none"]) if (!seen.has(k)) first ??= `no payment is seen by ${k}`;
+  for (const v of views.values()) for (const r of v.rows) if ((r.seenBy === "bank") !== (r.tx !== null) && r.amount > 0) first ??= `case ${v.caseId} row ${r.seq} seenBy ${r.seenBy} with transaction ${r.tx}`;
+  report("L4 payments take the 3 values of seenBy, and a payment in the bank's records has a transaction", first);
+
+  // L5
+  first = null;
+  let never = 0;
+  for (const v of views.values()) for (const r of v.rows) {
+    if (r.amount === 0) { never++; if (r.planned === null || !(r.planned > 0)) first ??= `case ${v.caseId} row ${r.seq} did not happen and has no planned amount`; }
+  }
+  if (never === 0) first ??= "no payment of the data set did not happen";
+  report("L5 a payment that did not happen has the amount 0 and keeps its planned amount", first);
+
+  // L6
+  first = null;
+  let longest: CaseView | null = null;
+  for (const v of views.values()) if (!longest || v.rows.length > longest.rows.length) longest = v;
+  const tallyColumns = new Map<number, number>();
+  for (const v of views.values()) {
+    const cols = flowColumns(v);
+    tallyColumns.set(cols.length, (tallyColumns.get(cols.length) ?? 0) + 1);
+    const inColumn = new Map<string, number>();
+    for (const c of cols) for (const k of c.parties) inColumn.set(k, (inColumn.get(k) ?? 0) + 1);
+    for (const p of v.parties) if (inColumn.get(p.key) !== 1) first ??= `case ${v.caseId} party ${p.key} is in ${inColumn.get(p.key) ?? 0} columns`;
+  }
+  const longCols = longest ? flowColumns(longest) : [];
+  if (!longest || longCols.length < 2 || longCols.length > DRAWN_COLUMNS) first ??= `the longest case has ${longCols.length} columns`;
+  if (longest && longest.parties.filter((p) => p.part !== null && p.group === "peel-chain.hops").length > 3 && !longCols.some((c) => c.count > 3)) first ??= "the run of wallets does not share a column";
+  report("L6 the longest case has 2 to 8 columns, and every party is in one column", first);
+
+  // L7
+  first = null;
+  for (const id of ["ransom-through-a-mixer", "stolen-funds-through-a-peel-chain"]) {
+    const keys = (patternOf(id) ? labelsOf([patternOf(id)!], PARTS)[0].keys.map((k) => k.key) : []);
+    const byId = patternCases(cases, id).map((c) => c.caseId).join(",");
+    for (const k of keys) if (patternCases(cases, k).map((c) => c.caseId).join(",") !== byId) first ??= `${k} gives other cases than ${id}`;
+    if (!byId) first ??= `${id} holds no case`;
+    const want = librarySteps(id).map((s) => s.step).join(",");
+    const got = patternSteps(ds, id).map((s) => s.step).join(",");
+    if (got !== want || patternSteps(ds, keys[0]).map((s) => s.step).join(",") !== want) first ??= `${id} steps ${got} against the files ${want}`;
+    if (patternSteps(ds, id).some((s) => !s.say)) first ??= `${id} has a step without a sentence`;
+  }
+  if (patternCases(cases, "lib.ransom-through-a-mixer.cash-out").length === 0) first ??= "the cash-out key finds no case of the pattern that is seen at both ends";
+  report("L7 the cases and the steps of a library pattern are the same for its id and for each of its keys", first);
+
+  // L8
+  first = null;
+  for (const v of views.values()) for (const p of v.parties) {
+    if ((p.account !== null) !== (p.role !== null)) first ??= `case ${v.caseId} party ${p.key} has account ${p.account} and role ${p.role}`;
+    if (p.account !== null && p.label !== (ds.accounts[p.account]?.customerId ?? String(p.account))) first ??= `case ${v.caseId} party ${p.key} label ${p.label}`;
+    if (p.part === null || p.end === null) first ??= `case ${v.caseId} party ${p.key} has no part or end`;
+  }
+  report("L8 a party with an account has its role and its customer id, and every party has its part and end", first);
+
+  // the typical case of each pattern
+  for (const id of ["ransom-through-a-mixer", "stolen-funds-through-a-peel-chain"]) {
+    const a = typicalCaseView(id), b = typicalCaseView(id);
+    report(`T1 2 calls of typicalCaseView give the same view for ${id}`, a && b && JSON.stringify(a) === JSON.stringify(b) ? null : "the views differ or are null");
+    first = null;
+    if (a) {
+      const have = new Set(a.rows.map((r) => r.step));
+      for (const s of librarySteps(id)) if (s.required && !have.has(s.step)) first ??= `the required step ${s.step} has no payment`;
+      if (a.rows.some((r) => r.amount <= 0)) first ??= "a payment has no amount";
+      if (a.caseId !== -1 || flowColumns(a).length < 2) first ??= "the case number or the columns are wrong";
+    } else first = "no view";
+    report(`T2 the typical case of ${id} holds each required step`, first);
+  }
+  {
+    const ransom = typicalCaseView("ransom-through-a-mixer");
+    const peel = typicalCaseView("stolen-funds-through-a-peel-chain");
+    first = null;
+    if (!ransom) first = "no view";
+    else {
+      const groups = new Set(ransom.parties.map((p) => p.group)).size;
+      const cols = flowColumns(ransom);
+      if (groups <= DRAWN_COLUMNS) first ??= `the typical ransom case has ${groups} party groups`;
+      if (cols.length > DRAWN_COLUMNS) first ??= `the typical ransom case has ${cols.length} columns`;
+      const shared = cols.filter((c) => c.key.startsWith("part:"));
+      const hiding = patternOf("ransom-through-a-mixer")?.parts.hiding ?? [];
+      if (shared.length !== 2 || hiding.length !== 2) first ??= `the typical ransom case has ${shared.length} shared columns for ${hiding.length} hiding parts`;
+      for (const c of shared) {
+        const id = c.key.slice(5);
+        if (c.label !== PARTS.get(id)?.title) first ??= `the shared column ${id} is labelled ${c.label}`;
+        if (c.detail !== `${c.count} parties`) first ??= `the shared column ${id} has the detail ${c.detail}`;
+      }
+    }
+    report("T4 the typical ransom case has more than 8 party groups, at most 8 columns, and 2 shared columns that carry the titles of the parts", first);
+    first = null;
+    if (!peel) first = "no view";
+    else {
+      const cols = flowColumns(peel);
+      if (DRAWN_COLUMNS !== 8) first ??= `DRAWN_COLUMNS is ${DRAWN_COLUMNS}`;
+      if (cols.length !== 8) first ??= `the typical peel case has ${cols.length} columns`;
+      if (cols.some((c) => c.key.startsWith("part:"))) first ??= "the typical peel case has a shared column of a part";
+    }
+    report("T5 the limit of drawn columns is 8 and the typical peel case has 8 columns and no shared column of a part", first);
+    first = null;
+    const ids = new Set(PARTS.keys());
+    for (const v of views.values()) for (const c of flowColumns(v)) if (ids.has(c.label)) first ??= `case ${v.caseId} has a column labelled with the id ${c.label}`;
+    report("T6 no column of a library case has the id of a part as its label", first);
+  }
+  report("T3 typicalCaseView of an unknown id is null", typicalCaseView("no-such-pattern") === null ? null : "not null");
+
+  // the labels inside a shared column
+  first = null;
+  for (const id of ["ransom-through-a-mixer", "stolen-funds-through-a-peel-chain"]) {
+    const v = typicalCaseView(id);
+    if (!v) { first ??= `no typical view for ${id}`; continue; }
+    const colOf = new Map<string, number>();
+    flowColumns(v).forEach((c, i) => c.parties.forEach((k) => colOf.set(k, i)));
+    const byKey = new Map(v.parties.map((p) => [p.key, p]));
+    for (const r of v.rows) {
+      const f = byKey.get(r.from), t = byKey.get(r.to);
+      if (f && t && colOf.get(f.key) === colOf.get(t.key) && withinLabel(f, t) !== "") first ??= `${id} row ${r.seq} has the label ${withinLabel(f, t)}`;
+    }
+    const hiding = new Set((patternOf(id)?.parts.hiding ?? []) as string[]);
+    for (const p of v.parties) if (p.part !== null && hiding.has(p.part) && memberRef(p) !== "") first ??= `${id} party ${p.key} has the reference ${memberRef(p)}`;
+  }
+  report("W1 in the typical cases a payment inside one column has no label, and a party of a hiding part has no reference", first);
+  first = null;
+  let within = 0, same = 0;
+  for (const v of views.values()) {
+    const colOf = new Map<string, number>();
+    flowColumns(v).forEach((c, i) => c.parties.forEach((k) => colOf.set(k, i)));
+    const byKey = new Map(v.parties.map((p) => [p.key, p]));
+    for (const r of v.rows) {
+      const f = byKey.get(r.from), t = byKey.get(r.to);
+      if (!f || !t || colOf.get(f.key) !== colOf.get(t.key)) continue;
+      const text = withinLabel(f, t);
+      if (r.from === r.to) { same++; if (text !== "") first ??= `case ${v.caseId} row ${r.seq} pays itself and has the label ${text}`; continue; }
+      within++;
+      if (!/^….{4} pays ….{4}$/.test(text)) first ??= `case ${v.caseId} row ${r.seq} has the label ${text}`;
+    }
+  }
+  if (within === 0) first ??= "no payment of a library case lies inside one column";
+  report("W2 a payment between 2 parties of one column has the label of 2 tail forms", first);
+  {
+    const p = payer("1");
+    report("W3 a payment of a party to itself has no label", withinLabel(p, p) === "" ? null : "not empty");
+  }
+  console.log(`  figures: ${within} payments inside one column, ${same} of a party to itself`);
+
+  console.log(`  figures: ${cases.length} cases, ${libCases.length} library cases, most payments in a library case ${longest?.rows.length ?? 0}, ${never} payments did not happen`);
+  console.log(`  columns of library cases: ${[...tallyColumns.entries()].sort((a, b) => a[0] - b[0]).map(([n, k]) => `${n} columns: ${k} cases`).join(", ")}; more than ${DRAWN_COLUMNS} columns: ${[...tallyColumns.entries()].filter(([n]) => n > DRAWN_COLUMNS).reduce((s, [, k]) => s + k, 0)} cases`);
+}
+
+// the standard bank with both library patterns on at their own ends, as the panel makes it: the cases by number of columns
+console.log("library cases of the standard bank");
+{
+  const ds = generate({ ...DEFAULT_CONFIG, seed: 20260904, library: {
+    "ransom-through-a-mixer": { on: true, per1k: 0.4, size: 1, speed: 1, bankSees: "source" },
+    "stolen-funds-through-a-peel-chain": { on: true, per1k: 0.4, size: 1, speed: 1, bankSees: "cash-out" },
+  } }, wallets);
+  const tally = new Map<number, number>();
+  let wrong: string | null = null;
+  for (const c of listCases(ds)) {
+    const v = caseView(ds, c.caseId);
+    if (!v) { wrong ??= `no view for case ${c.caseId}`; continue; }
+    const n = flowColumns(v).length;
+    tally.set(n, (tally.get(n) ?? 0) + 1);
+  }
+  report("L9 every case of the standard bank has a view", wrong);
+  console.log(`  columns of all ${[...tally.values()].reduce((s, k) => s + k, 0)} cases: ${[...tally.entries()].sort((a, b) => a[0] - b[0]).map(([n, k]) => `${n} columns: ${k} cases`).join(", ")}`);
+}
+
+// the functions that the pages call for the ledger, the list of references and the panel of library patterns
+console.log("page functions");
+{
+  const eq = (name: string, got: unknown, want: unknown) => report(name, JSON.stringify(got) === JSON.stringify(want) ? null : `got ${JSON.stringify(got)}, want ${JSON.stringify(want)}`);
+  eq("N1 a short address is split from its words", splitShortAddress("Wallet bc1q09…64dk"), { head: "Wallet ", address: "bc1q09…64dk" });
+  eq("N2 a name with no short address is whole", splitShortAddress("CUST-0001"), { head: "CUST-0001", address: null });
+  eq("N3 a bare short address has an empty head", splitShortAddress("bc1q09…64dk"), { head: "", address: "bc1q09…64dk" });
+  eq("N4 the dot sits low where payer and payee share a column", ledgerDotY(2, 2, "64%", "86%"), "86%");
+  eq("N5 the dot keeps the line height between columns", ledgerDotY(1, 2, "64%", "86%"), "64%");
+  eq("N6 the dot keeps the line height where a party has no column", ledgerDotY(undefined, undefined, "64%", "86%"), "64%");
+  eq("N7 a source of the pattern comes first and a source of a part follows once", mergeReferences([[{ id: "S57", pages: "10" }, { id: "S58" }], [{ id: "S58", pages: "3" }, { id: "S59", pages: "4" }], [{ id: "S59", pages: "9" }]]), [{ id: "S57", pages: "10" }, { id: "S58" }, { id: "S59", pages: "4" }]);
+  eq("N8 the rate is read in words", [libraryRateText(0.5), libraryRateText(1)], ["0.5 cases for each 1,000 accounts", "1 case for each 1,000 accounts"]);
+  eq("N9 the count is read in words", [libraryCountText(0), libraryCountText(1), libraryCountText(2)], ["0 cases", "1 case", "2 cases"]);
 }
 
 console.log(failures ? `\n${failures} FAILED` : "\nall ok");

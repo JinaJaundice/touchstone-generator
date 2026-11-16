@@ -1,13 +1,14 @@
 import { Fragment, useMemo, useState } from "react";
 import { useGenStore as useStore } from "../lib/genStore";
 import { BankBuilder } from "./BankBuilder";
-import { patternFamily, patternShort, type Dataset, type Tx } from "../lib/gen/types";
-import { caseView, listCases, pickCase } from "../lib/gen/caseView";
-import { FlowLedger } from "../lib/flow";
+import { patternFamily, patternShort, type Tx } from "../lib/gen/types";
+import { caseView, libraryIdOf, listCases, pickCase } from "../lib/gen/caseView";
+import { FlowLedger, ledgerCounts } from "../lib/flow";
 import { Button, Card, Disclosure, Doc, Empty, NextStep, PageHead, Pill, Section, Seg, StatBand, Working, type ContentsItem } from "../lib/ui";
 import { BarList, FAMILY_ORDER, FAMILY_WORD, LogHistogram, familyTone } from "../lib/viz";
 import { METHOD_SHORT, RAIL_LABEL, dayLabel, fmtGbp, fmtGbpShort, fmtInt, fmtMinute, fmtPct, plural } from "../lib/format";
-import { ACCOUNT_COLUMNS, TX_COLUMNS, accountCell, accountsParquet, txCell, txParquet } from "../lib/gen/parquet";
+import { accountsParquet, txParquet } from "../lib/gen/parquet";
+import { accountsCsv, caseLegsCsv, partiesCsv, txCsv } from "../lib/gen/csv";
 import { messageText, renderMessage } from "../lib/gen/message";
 import { makeCalendar } from "../lib/gen/calendar";
 
@@ -27,17 +28,6 @@ function download(name: string, text: string | ArrayBuffer, type = "text/plain")
   const url = URL.createObjectURL(new Blob([text], { type }));
   const a = document.createElement("a"); a.href = url; a.download = name; a.click();
   setTimeout(() => URL.revokeObjectURL(url), 5000);
-}
-
-/* the CSV files carry the same columns in the same order as the Parquet files (lib/gen/parquet.ts), so the two cannot drift apart */
-const csvValue = (v: unknown) => v === null || v === undefined ? "" : typeof v === "string" ? `"${v.replace(/"/g, '""')}"` : String(v);
-function txCsv(ds: Dataset) {
-  const rows = ds.txs.map((t) => TX_COLUMNS.map((c) => csvValue(txCell(t, c.name, ds.day0))).join(","));
-  return TX_COLUMNS.map((c) => c.name).join(",") + "\n" + rows.join("\n") + "\n";
-}
-function accountsCsv(ds: Dataset) {
-  const rows = ds.accounts.map((a) => ACCOUNT_COLUMNS.map((c) => csvValue(accountCell(a, c.name))).join(","));
-  return ACCOUNT_COLUMNS.map((c) => c.name).join(",") + "\n" + rows.join("\n") + "\n";
 }
 
 /** The text a host page may replace. Each default is the text of the generator page, and the working app passes its own. */
@@ -100,6 +90,8 @@ export function Generate({ text }: { text?: Partial<GenerateText> } = {}) {
   const caseCount = caseList.length;
   const shownCase = useMemo(() => pickCase(caseList), [caseList]);
   const shownView = useMemo(() => (ds && shownCase ? caseView(ds, shownCase.caseId) : null), [ds, shownCase]);
+  const shownCounts = useMemo(() => (shownView && shownView.parties.some((p) => p.part !== null) ? ledgerCounts(shownView) : null), [shownView]);
+  const libraryCases = ds?.summary.library?.cases ?? 0;
   const cust = (i: number, t?: Tx) => i === -2 ? (t?.type === "INCOME" ? "outside (credit)" : "outside") : i === -1 ? (t?.type === "SPEND" ? "merchant" : t?.type === "CASH_OUT" ? "cash" : "outside") : i <= -1000 ? (t?.wallet ? t.wallet.slice(0, 10) + "…" : "wallet") : ds?.accounts[i]?.customerId ?? String(i);
 
   return (
@@ -115,14 +107,14 @@ export function Generate({ text }: { text?: Partial<GenerateText> } = {}) {
             <StatBand items={[
               { label: "accounts", value: fmtInt(ds.summary.accounts), sub: `${fmtInt(ds.summary.newAccounts)} opened during the run` },
               { label: "transactions", value: fmtInt(ds.summary.txs), sub: `${ds.summary.days} days, ${fmtGbpShort(ds.summary.totalValue)} moved` },
-              { label: "crime patterns planted", value: fmtInt(ds.summary.patterns), sub: `${Object.keys(ds.summary.byTypology).length} kinds of pattern` },
+              { label: "crime patterns planted", value: fmtInt(ds.summary.patterns), sub: `${Object.keys(ds.summary.byTypology).length} kinds of pattern${libraryCases > 0 ? `, ${plural(libraryCases, "library case")}` : ""}` },
               { label: "accounts used for laundering", value: fmtInt(ds.summary.sarAccounts), sub: fmtPct(ds.summary.sarAccounts / ds.summary.accounts, 1) + " of all accounts", tone: "missed" },
               { label: "fraud victims and mules", value: fmtInt(ds.summary.fraudAccounts), tone: "noise" },
             ]} />
             <Card title="A planted case, drawn">
               {shownView && cal ? (
                 <>
-                  <p className="faint" style={{ marginTop: 0 }}>{shownView.title}, case {shownView.caseId}, one of {fmtInt(caseCount)} planted cases. It has {plural(shownView.rows.length, "payment")} between {plural(shownView.parties.length, "party", "parties")} and moved {fmtGbp(shownView.value)}.</p>
+                  <p className="faint" style={{ marginTop: 0 }}>{shownView.title}, case {shownView.caseId}, one of {fmtInt(caseCount)} planted cases. It has {plural(shownView.rows.length, "payment")} between {plural(shownView.parties.length, "party", "parties")} and moved {fmtGbp(shownView.value)}.{shownCounts && ` The ledger draws ${fmtInt(shownCounts.drawn)} of its payments in ${plural(shownCounts.columns, "column")} and folds the other ${fmtInt(shownCounts.folded)} into buttons that open each long step.`}</p>
                   <FlowLedger view={shownView} shown={null} cal={cal} />
                 </>
               ) : <p style={{ marginTop: 0 }}>No crime pattern was planted in this data set.</p>}
@@ -134,7 +126,7 @@ export function Generate({ text }: { text?: Partial<GenerateText> } = {}) {
                   <thead><tr><th>Crime pattern</th><th className="num">Planted</th><th className="num">Accounts</th><th className="num">Transactions</th><th className="num">Value</th></tr></thead>
                   <tbody>
                     {typRows.map((r) => (
-                      <tr key={r.key}><td><FamilyDot k={r.key} /><a className="link" href={"#/data/patterns/" + r.key}>{patternShort(r.key)}</a></td><td className="num val">{r.instances}</td><td className="num val">{r.accounts}</td><td className="num val">{r.txs}</td><td className="num val">{fmtGbpShort(r.total)}</td></tr>
+                      <tr key={r.key}><td><FamilyDot k={r.key} /><a className="link" href={"#/data/patterns/" + (libraryIdOf(r.key) ?? r.key)}>{patternShort(r.key)}</a></td><td className="num val">{r.instances}</td><td className="num val">{r.accounts}</td><td className="num val">{r.txs}</td><td className="num val">{fmtGbpShort(r.total)}</td></tr>
                     ))}
                   </tbody>
                 </table>
@@ -193,7 +185,7 @@ export function Generate({ text }: { text?: Partial<GenerateText> } = {}) {
               </div>
               <p className="faint" style={{ marginTop: 8 }}>Message opens a row as it would read in the bank's own format. A payment reads as an ISO 20022 credit transfer, a card payment as the card scheme's fields, cash as a teller record, crypto as an on-chain transfer. Every value is the record's own.</p>
             </Disclosure>
-            <Disclosure id="download" title="Download the files" sub="transactions and accounts as a CSV file or a Parquet file, the planted patterns, and the settings that make this data set again" count="6 files">
+            <Disclosure id="download" title="Download the files" sub="transactions and accounts as a CSV file or a Parquet file, the planted patterns, and the settings that make this data set again" count={libraryCases > 0 ? "8 files" : "6 files"}>
               <div className="dl-list">
                 <button type="button" className="dl" onClick={() => download(`touchstone-transactions-${ds.config.seed}.csv`, txCsv(ds), "text/csv")}><b>Transactions</b><span>a CSV file, {fmtInt(ds.txs.length)} rows, every field including which ones are planted crime</span></button>
                 <button type="button" className="dl" onClick={() => download(`touchstone-accounts-${ds.config.seed}.csv`, accountsCsv(ds), "text/csv")}><b>Accounts</b><span>a CSV file, {fmtInt(ds.accounts.length)} rows with segment, tier, declared activity and which ones are planted crime</span></button>
@@ -201,8 +193,15 @@ export function Generate({ text }: { text?: Partial<GenerateText> } = {}) {
                 <button type="button" className="dl" onClick={async () => download(`touchstone-accounts-${ds.config.seed}.parquet`, await accountsParquet(ds), "application/vnd.apache.parquet")}><b>Accounts as Parquet</b><span>the same {fmtInt(ds.accounts.length)} rows and columns as a Parquet file</span></button>
                 <button type="button" className="dl" onClick={() => download(`touchstone-patterns-${ds.config.seed}.json`, JSON.stringify(ds.patterns, null, 1), "application/json")}><b>Planted crime patterns</b><span>a JSON file, {fmtInt(ds.patterns.length)} patterns with members, period and value</span></button>
                 <button type="button" className="dl" onClick={() => download(`touchstone-settings-${ds.config.seed}.json`, JSON.stringify(ds.config, null, 2), "application/json")}><b>Settings</b><span>a JSON file with everything needed to make this exact data set again</span></button>
+                {libraryCases > 0 && (
+                  <>
+                    <button type="button" className="dl" onClick={() => download(`touchstone-case-payments-${ds.config.seed}.csv`, caseLegsCsv(ds), "text/csv")}><b>Case payments</b><span>a CSV file, {fmtInt(ds.summary.library?.legs ?? 0)} rows, each planned payment of each library case, in order</span></button>
+                    <button type="button" className="dl" onClick={() => download(`touchstone-parties-${ds.config.seed}.csv`, partiesCsv(ds), "text/csv")}><b>Parties</b><span>a CSV file, {fmtInt(ds.parties.length)} rows, each party of each library case</span></button>
+                  </>
+                )}
               </div>
               <p className="faint" style={{ marginTop: 10 }}>{copy.downloadNote}</p>
+              {libraryCases > 0 && <p className="faint" style={{ marginTop: 4 }}>The payments outside the bank's records belong to planted cases only. They are no record of a whole chain.</p>}
             </Disclosure>
             <NextStep href={copy.next.href} title={copy.next.title} line={copy.next.line} />
           </>

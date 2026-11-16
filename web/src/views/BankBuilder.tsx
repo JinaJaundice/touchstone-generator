@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { genActions as actions, useGenStore as useStore } from "../lib/genStore";
 import { normaliseConfig, normaliseMix } from "../lib/gen/config";
-import { ARCHETYPE_ORDER, ARCHETYPES, DIAL_GROUPS, DIALS, DIFFICULTY, difficultyExact, difficultyIndex, encodeBank, estimate, nearestStep, onStep, STAT_LABELS, stats, type ArchetypeKey, type Dial, type DialGroup, type Glyph } from "../lib/gen/archetypes";
+import labelsFile from "../lib/gen/patterns/labels.json";
+import { ARCHETYPE_ORDER, ARCHETYPES, DIAL_GROUPS, DIALS, DIFFICULTY, difficultyExact, difficultyIndex, encodeBank, estimate, libraryCaseCount, libraryCountText, libraryRateText, nearestStep, onStep, STAT_LABELS, stats, type ArchetypeKey, type Dial, type DialGroup, type Glyph } from "../lib/gen/archetypes";
 import { AML_TYPOLOGIES, CRYPTO_TYPOLOGIES, FRAUD_TYPOLOGIES, TYPOLOGY_LABEL, TYPOLOGY_SHORT, type CountryMix, type GenConfig, type Typology } from "../lib/gen/types";
 import { Button, Disclosure, Field, Pill, Section, Seg, Slider, Toggle } from "../lib/ui";
 import { Scales } from "../lib/viz";
@@ -176,7 +177,10 @@ export function BankBuilder() {
                       <TypologyPanel title="Fraud" family="fraud" keys={FRAUD_TYPOLOGIES} cfg={cfg.fraud} accounts={cfg.accounts} />
                       <TypologyPanel title="Crypto" family="crypto" keys={CRYPTO_TYPOLOGIES} cfg={cfg.crypto} accounts={cfg.accounts} />
                     </div>
-                    <div className="dial-help">The slider is a rate per 1,000 accounts; the figure on the right is the number of patterns at the current size.</div>
+                    <div className="typo-grid" style={{ marginTop: 18 }}>
+                      <LibraryPanel cfg={cfg} />
+                    </div>
+                    <div className="dial-help">The slider is a rate per 1,000 accounts. The figure on the right is the number of patterns at the current size. In a library row it is the number of cases.</div>
                   </div>
                 )}
               </div>
@@ -270,6 +274,30 @@ export function BankBuilder() {
         </Disclosure>
       </Section>
     </>
+  );
+}
+
+/** The panel of library patterns: a switch, the short name as a link to the page of the pattern, a slider for the rate and the number of cases that the rate gives. */
+function LibraryPanel({ cfg }: { cfg: GenConfig }) {
+  return (
+    <div className="typo-panel">
+      <div className="typo-panel-title">Library patterns</div>
+      <p className="dial-help">A library pattern is a crime method from a published source. Its page shows its steps, its figures and a typical case. It is off until you switch it on. Switching one on also changes some ordinary transactions of the data set from about the day of its first case.</p>
+      {labelsFile.patterns.map((p) => {
+        const s = cfg.library?.[p.id];
+        const on = s?.on ?? false;
+        const rate = s?.per1k ?? p.per1k;
+        const n = on && rate > 0 ? libraryCaseCount(rate, cfg.accounts) : 0;
+        return (
+          <div className={`typo-row ${on ? "" : "off"}`} key={p.id}>
+            <Toggle on={on} onChange={(v) => actions.setLibrary(p.id, { on: v })} label={`${p.short} switch`} />
+            <a className="link typo-name" href={`#/data/patterns/${p.id}`} title={p.title}>{p.short}</a>
+            <input className="typo-rate" type="range" min={0} max={5} step={0.1} value={rate} disabled={!on} onChange={(e) => actions.setLibrary(p.id, { per1k: Number(e.target.value) })} aria-label={`${p.short} rate`} aria-valuetext={libraryRateText(rate)} />
+            <div className="typo-count val"><span aria-hidden="true">{n}</span><span className="sr-only">{libraryCountText(n)}</span></div>
+          </div>
+        );
+      })}
+    </div>
   );
 }
 

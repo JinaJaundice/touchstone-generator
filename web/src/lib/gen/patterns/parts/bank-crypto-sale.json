@@ -1,0 +1,141 @@
+{
+  "schema": "touchstone-part/1",
+  "id": "bank-crypto-sale",
+  "kind": "cash-out",
+  "status": "tested",
+  "family": "crypto",
+  "title": "Bitcoin sold through the bank's own crypto service",
+  "short": "Sale at the bank",
+  "summary": "Bitcoin arrives at the bank's crypto service from the last wallet and is sold into the customer's account. Most of the money is then sent on.",
+  "references": [
+    {
+      "id": "S57",
+      "pages": "19, 29, 41"
+    },
+    {
+      "id": "S37",
+      "note": "The report lists a receipt followed by a rapid transfer that empties the account among its risk indicators."
+    }
+  ],
+  "takes": [
+    "BTC@bitcoin"
+  ],
+  "entry": "lastWallet",
+  "parties": [
+    {
+      "id": "lastWallet",
+      "kind": "wallet",
+      "chain": "bitcoin",
+      "label": "the wallet that sends the bitcoin",
+      "reuse": "case"
+    },
+    {
+      "id": "holder",
+      "kind": "customer",
+      "role": "launderer",
+      "label": "the customer who sells the bitcoin",
+      "count": [
+        1,
+        1
+      ],
+      "pick": {
+        "segments": [
+          "retail"
+        ],
+        "hasWallet": true
+      }
+    },
+    {
+      "id": "onward",
+      "kind": "outside-account",
+      "label": "an account at another bank",
+      "reuse": "case",
+      "country": "ordinary"
+    }
+  ],
+  "steps": [
+    {
+      "id": "receive",
+      "kind": "move",
+      "say": "Bitcoin arrives at the bank's crypto service and is sold into the account.",
+      "from": "lastWallet",
+      "to": "holder",
+      "via": "bank-crypto",
+      "asset": "BTC",
+      "amount": {
+        "of": "held",
+        "share": [
+          1,
+          1
+        ]
+      },
+      "split": "uneven",
+      "times": [
+        2,
+        6
+      ],
+      "start": {
+        "after": "entry",
+        "hours": [
+          1,
+          48
+        ]
+      },
+      "between": {
+        "days": [
+          0,
+          3
+        ]
+      },
+      "need": "required",
+      "varies": "rotating",
+      "legRole": "tainted-receipt",
+      "basis": {
+        "kind": "reported",
+        "ref": "S57",
+        "pages": "41",
+        "note": "The report says that most exits from criminal crypto funds still pass through a regulated service, such as an exchange. The sale at the bank's own crypto service, the count of transfers and the waits are assumed."
+      }
+    },
+    {
+      "id": "sendOn",
+      "kind": "move",
+      "say": "The customer sends most of the money on by transfer.",
+      "from": "holder",
+      "to": "onward",
+      "via": "fps",
+      "asset": "GBP",
+      "amount": {
+        "of": "held",
+        "share": [
+          0.7,
+          0.95
+        ]
+      },
+      "times": [
+        1,
+        2
+      ],
+      "start": {
+        "after": "receive",
+        "days": [
+          0,
+          3
+        ]
+      },
+      "between": {
+        "days": [
+          0,
+          1
+        ]
+      },
+      "need": "required",
+      "varies": "rotating",
+      "legRole": "offramp-forward",
+      "basis": {
+        "kind": "assumed",
+        "note": "The share and the wait follow the built-in pattern for bitcoin that is sold and sent on."
+      }
+    }
+  ]
+}

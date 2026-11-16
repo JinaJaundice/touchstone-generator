@@ -25,14 +25,19 @@ export function runGenerator(config: GenConfig, onProgress?: (p: GenProgress) =>
     const worker = new Worker(new URL("./worker.ts", import.meta.url), { type: "module" });
     // the records arrive in slices (worker.ts says why) and are joined here in order
     const txs: Dataset["txs"] = [];
+    const caseLegs: Dataset["caseLegs"] = [];
+    const parties: Dataset["parties"] = [];
     worker.onmessage = (e) => {
       const m = e.data;
       if (m.kind === "progress") onProgress?.(m);
       else if (m.kind === "txs") { for (const t of m.txs) txs.push(t); }
+      else if (m.kind === "rows") { const into = m.table === "caseLegs" ? caseLegs : parties; for (const r of m.rows) into.push(r); }
       else if (m.kind === "done") {
         worker.terminate();
         if (txs.length !== m.count) { reject(new Error(`${txs.length} of ${m.count} records arrived from the generator`)); return; }
-        resolve({ dataset: { ...m.dataset, txs }, ms: m.ms });
+        if (caseLegs.length !== m.caseLegCount) { reject(new Error(`${caseLegs.length} of ${m.caseLegCount} planned payments arrived from the generator`)); return; }
+        if (parties.length !== m.partyCount) { reject(new Error(`${parties.length} of ${m.partyCount} parties arrived from the generator`)); return; }
+        resolve({ dataset: { ...m.dataset, txs, caseLegs, parties }, ms: m.ms });
       }
       else if (m.kind === "error") { worker.terminate(); reject(new Error(m.message)); }
     };

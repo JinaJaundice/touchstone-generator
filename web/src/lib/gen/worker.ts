@@ -24,7 +24,11 @@ self.onmessage = (e: MessageEvent<{ config: GenConfig; wallets: WalletRef[]; abo
       post({ kind: "progress", stage: "handing over the records", done: i, total: txs.length });
       post({ kind: "txs", txs: txs.slice(i, i + TX_SLICE) });
     }
-    post({ kind: "done", dataset: { ...ds, txs: [] }, count: txs.length, ms: Math.round(performance.now() - started) });
+    // the 2 tables of the planted library cases follow the transactions in the same way
+    for (const [table, rows] of [["caseLegs", ds.caseLegs], ["parties", ds.parties]] as const) {
+      for (let i = 0; i < rows.length; i += TX_SLICE) post({ kind: "rows", table, rows: rows.slice(i, i + TX_SLICE) });
+    }
+    post({ kind: "done", dataset: { ...ds, txs: [], caseLegs: [], parties: [] }, count: txs.length, caseLegCount: ds.caseLegs.length, partyCount: ds.parties.length, ms: Math.round(performance.now() - started) });
   } catch (err) {
     post({ kind: "error", message: String(err) });
   }

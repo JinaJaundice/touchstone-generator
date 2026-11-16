@@ -6,7 +6,8 @@
 import { useSyncExternalStore } from "react";
 import { DEFAULT_CONFIG, normaliseConfig, PRESETS, type PresetKey } from "./gen/config";
 import { ARCHETYPES, loadSavedBanks, storeSavedBanks, type ArchetypeKey, type SavedBank } from "./gen/archetypes";
-import type { Dataset, GenConfig } from "./gen/types";
+import type { Dataset, GenConfig, LibrarySetting } from "./gen/types";
+import labelsFile from "./gen/patterns/labels.json";
 import { runGenerator, type GenProgress } from "./gen/client";
 import { fingerprint } from "./gen/fingerprint";
 
@@ -107,12 +108,34 @@ export function setRunner(r: typeof runGenerator): void { run = r; }
 
 let pendingGenerate = false;
 
+/** The values that a library pattern has when a user has changed nothing: off, its own rate and end, and the size and speed 1. Undefined for an id that names no pattern. */
+function libraryOwn(id: string): LibrarySetting | undefined {
+  const p = labelsFile.patterns.find((x) => x.id === id);
+  return p ? { on: false, per1k: p.per1k, size: 1, speed: 1, bankSees: p.bankSees as LibrarySetting["bankSees"] } : undefined;
+}
+
 export const genActions = {
   setConfig(patch: Partial<GenConfig>) { set({ config: { ...state.config, ...patch } }); saveSettings({ config: state.config }); },
   setTypology(family: "aml" | "fraud" | "crypto", key: string, patch: Partial<{ enabled: boolean; per1k: number }>) {
     const fam = { ...(state.config[family] as Record<string, { enabled: boolean; per1k: number; minAccounts: number; maxAccounts: number }>) };
     fam[key] = { ...fam[key], ...patch };
     set({ config: { ...state.config, [family]: fam } as GenConfig }); saveSettings({ config: state.config });
+  },
+  /**
+   * Change the settings of one library pattern. The change starts from the pattern's own values where the settings hold no entry.
+   * An entry that equals the pattern's own values is removed, and the field `library` is removed where no entry remains, so that
+   * a bank with every library pattern at its own values is the bank that was saved before the library existed.
+   */
+  setLibrary(id: string, patch: Partial<LibrarySetting>) {
+    const own = libraryOwn(id);
+    if (!own) return;
+    const entry: LibrarySetting = { ...own, ...(state.config.library?.[id] ?? {}), ...patch };
+    const { [id]: _old, ...others } = state.config.library ?? {};
+    const same = (Object.keys(own) as (keyof LibrarySetting)[]).every((k) => own[k] === entry[k]);
+    const library = same ? others : { ...others, [id]: entry };
+    const { library: _lib, ...rest } = state.config;
+    set({ config: Object.keys(library).length ? { ...rest, library } : rest });
+    saveSettings({ config: state.config });
   },
   applyPreset(key: PresetKey) { set({ config: normaliseConfig(PRESETS[key].patch(state.config)) }); saveSettings({ config: state.config }); },
   applyArchetype(key: ArchetypeKey) { set({ config: ARCHETYPES[key].patch(state.config) }); saveSettings({ config: state.config }); },

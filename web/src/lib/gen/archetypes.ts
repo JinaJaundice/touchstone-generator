@@ -11,6 +11,7 @@
 import type { AmlTypology, CryptoTypology, FraudTypology, GenConfig, TypologyConfig } from "./types";
 import { AML_DEFAULTS, CRYPTO_DEFAULTS, DEFAULT_CONFIG, FRAUD_DEFAULTS, cashFactor, fraudFromLegacy, normaliseConfig, normaliseMix } from "./config";
 import type { CountryMix, Segment } from "./types";
+import labelsFile from "./patterns/labels.json";
 
 const t = (per1k: number, min: number, max: number, enabled = true): TypologyConfig => ({ enabled, per1k, minAccounts: min, maxAccounts: max });
 const scale = <K extends string>(base: Record<K, TypologyConfig>, f: number, over: Partial<Record<K, number>> = {}): Record<K, TypologyConfig> => {
@@ -315,6 +316,18 @@ export function stats(c: GenConfig): Stats {
 export interface Estimate { accounts: number; txs: number; patterns: number; laundering: number; fraud: number; baseRate: number; seconds: number }
 
 const mean = (x: TypologyConfig) => (x.minAccounts + x.maxAccounts) / 2;
+/** The number of cases that a library pattern that is on with a rate above 0 plants (rule 3 of the planter): the rate for each 1,000 accounts, and at least 1. The estimate and the panel of library patterns both use it. */
+export function libraryCaseCount(rate: number, accounts: number): number {
+  return Math.max(1, Math.round(rate * accounts / 1000));
+}
+/** The words that a screen reader reads for the rate of a library pattern, such as "0.5 cases for each 1,000 accounts". */
+export function libraryRateText(rate: number): string {
+  return `${rate} ${rate === 1 ? "case" : "cases"} for each 1,000 accounts`;
+}
+/** The words that a screen reader reads for the number of cases that a library pattern plants, such as "2 cases". */
+export function libraryCountText(n: number): string {
+  return n === 1 ? "1 case" : n + " cases";
+}
 /** What a configuration yields, without generating it. Calibrated on the default
     data set (4,000 accounts, 90 days: 231,824 transactions, 123 patterns, 454
     laundering accounts, 119 fraud accounts) and checked by smoke-builder.ts. */
@@ -324,7 +337,15 @@ export function estimate(c: GenConfig): Estimate {
   // a scam or a takeover paid to mules at this bank plants a second pattern, the mule accounts: half the cases, less those paid through an exchange
   const VIA_EXCHANGE: Record<string, number> = { scam_investment: 0.5, scam_romance: 0.1, scam_impersonation_bank: 0.1 };
   const muleSides = Object.entries(c.fraud).reduce((a, [k, x]) => a + (x.enabled && (k.startsWith("scam_") || k.startsWith("ato_")) ? x.per1k * 0.5 * (1 - (VIA_EXCHANGE[k] ?? 0)) : 0), 0);
-  const patterns = Math.round((per1k(c.aml) + per1k(c.fraud) + per1k(c.crypto) + muleSides) * n / 1000);
+  // a library pattern that is on plants its cases (rule 3 of the planter), and each case has a planted pattern at each end that the bank sees
+  const libraryPatterns = labelsFile.patterns.reduce((a, p) => {
+    const s = c.library?.[p.id];
+    // the planter holds the rate to 0 to 5 and the end to those that the pattern allows (config.ts), so the estimate does the same
+    const rate = Math.max(0, Math.min(5, s?.per1k ?? p.per1k));
+    if (!s?.on || !(rate > 0)) return a;
+    return a + libraryCaseCount(rate, n) * ((s.bankSees && p.allowed.includes(s.bankSees) ? s.bankSees : p.bankSees) === "both" ? 2 : 1);
+  }, 0);
+  const patterns = Math.round((per1k(c.aml) + per1k(c.fraud) + per1k(c.crypto) + muleSides) * n / 1000) + libraryPatterns;
   const amlAccounts = Object.values(c.aml).reduce((a, x) => a + (x.enabled ? x.per1k * mean(x) : 0), 0) * n / 1000;
   const cryptoAccounts = Object.values(c.crypto).reduce((a, x) => a + (x.enabled ? x.per1k * mean(x) : 0), 0) * n / 1000;
   // a scam or a takeover pulls in a victim beyond its mules (the 1.5); card fraud and a bust-out are one account each

@@ -1,0 +1,90 @@
+{
+  "schema": "touchstone-part/1",
+  "id": "exchange-hack",
+  "kind": "source",
+  "status": "tested",
+  "title": "Funds stolen from an exchange",
+  "short": "Exchange theft",
+  "summary": "An attacker moves funds stolen from an exchange into one new address. A case follows one slice of the stolen funds.",
+  "references": [
+    {
+      "id": "S57",
+      "pages": "15 to 20"
+    }
+  ],
+  "value": {
+    "log": [
+      50000,
+      3000000
+    ],
+    "basis": {
+      "kind": "assumed",
+      "note": "No source read for the library gives the size of one slice of a theft. A case follows one slice, and a pattern may set a smaller slice."
+    }
+  },
+  "traceClass": "money laundering",
+  "gives": [
+    "BTC@bitcoin",
+    "ETH@ethereum"
+  ],
+  "exit": "attackerAddress",
+  "parties": [
+    {
+      "id": "exchangeWallets",
+      "kind": "exchange",
+      "label": "the exchange that is robbed",
+      "reuse": "case"
+    },
+    {
+      "id": "attackerAddress",
+      "kind": "wallet",
+      "label": "the attacker's new address",
+      "reuse": "case"
+    }
+  ],
+  "steps": [
+    {
+      "id": "drain",
+      "kind": "move",
+      "say": "The attacker moves the stolen funds into one new address.",
+      "from": "exchangeWallets",
+      "to": "attackerAddress",
+      "via": "chain",
+      "asset": "out",
+      "amount": {
+        "of": "value",
+        "share": [
+          1,
+          1
+        ]
+      },
+      "pays": "own",
+      "split": "uneven",
+      "times": [
+        1,
+        6
+      ],
+      "start": {
+        "after": "case",
+        "minutes": [
+          0,
+          5
+        ]
+      },
+      "between": {
+        "minutes": [
+          1,
+          6
+        ]
+      },
+      "need": "required",
+      "varies": "ephemeral",
+      "basis": {
+        "kind": "reported",
+        "ref": "S57",
+        "pages": "15, 19",
+        "note": "One case in the report shows about 2,000 withdrawals into one destination. The count of 1 to 6 transfers for one slice and the waits are assumed."
+      }
+    }
+  ]
+}

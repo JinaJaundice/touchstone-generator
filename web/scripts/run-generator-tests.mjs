@@ -14,6 +14,7 @@ const tests = [
   { name: "smoke-hidden", args: [] },
   { name: "smoke-calibrate", args: [] },
   { name: "smoke-caseview", args: [] },
+  { name: "qa-library", args: [] },
 ];
 
 for (const t of tests) {

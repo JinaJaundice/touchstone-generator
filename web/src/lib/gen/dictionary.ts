@@ -5,6 +5,7 @@
    the validator and the data cannot drift apart. */
 
 import { FAMILY_LABEL, FAMILY_OWNER, TYPOLOGY_FAMILY, TYPOLOGY_LABEL, type Family, type Typology } from "./types";
+import labelsFile from "./patterns/labels.json";
 
 export type FieldType = "int" | "number" | "string" | "bool" | "enum" | "object" | "array";
 export interface FieldSpec {
@@ -18,6 +19,8 @@ export interface FieldSpec {
   truth?: boolean;
   /** when the field is set (when it is null otherwise) */
   when?: string;
+  /** a record may leave the field out; where it holds the field, the field is checked as any other */
+  optional?: boolean;
 }
 
 export const LEG_ROLE: Record<string, string> = {
@@ -51,7 +54,14 @@ export const ACCOUNT_ROLE: Record<string, string> = {
   exposed: "a customer who paid an address on the sanctions list",
 };
 
-const TYPOLOGY_VALUES = Object.fromEntries((Object.keys(TYPOLOGY_LABEL) as Typology[]).map((t) => [t, `${TYPOLOGY_LABEL[t]} (${FAMILY_LABEL[TYPOLOGY_FAMILY[t]].toLowerCase()})`]));
+/** The key of each planted pattern of the library, with its label and the family of its end, from patterns/labels.json. */
+export const LIBRARY_KEYS: { key: string; label: string; family: Family }[] =
+  labelsFile.patterns.flatMap((p) => p.keys.map((k) => ({ key: k.key, label: k.label, family: k.family as Family })));
+
+const TYPOLOGY_VALUES = Object.fromEntries([
+  ...(Object.keys(TYPOLOGY_LABEL) as Typology[]).map((t) => [t, `${TYPOLOGY_LABEL[t]} (${FAMILY_LABEL[TYPOLOGY_FAMILY[t]].toLowerCase()})`]),
+  ...LIBRARY_KEYS.map((k) => [k.key, `${k.label} (${FAMILY_LABEL[k.family].toLowerCase()})`]),
+]);
 const FAMILY_VALUES = Object.fromEntries((Object.keys(FAMILY_LABEL) as Family[]).map((f) => [f, `${FAMILY_LABEL[f]}, owned by ${FAMILY_OWNER[f]}`]));
 
 export const TX_FIELDS: FieldSpec[] = [
@@ -193,6 +203,41 @@ export const PATTERN_FIELDS: FieldSpec[] = [
   { name: "total", type: "number", truth: true, meaning: "their value" },
   { name: "story", type: "string", truth: true, meaning: "the phrase a reviewer would use" },
   { name: "sources", type: "array", truth: true, meaning: "the entries of the register of sources that the shape comes from" },
+  { name: "library", type: "object", truth: true, optional: true, meaning: "the crime pattern of the library that this planted pattern is, as its id in pattern and its end in end, source or cash-out", when: "the pattern comes from the pattern library" },
+];
+
+export const PARTY_FIELDS: FieldSpec[] = [
+  { name: "caseId", type: "int", truth: true, meaning: "the case the party is in" },
+  { name: "key", type: "string", truth: true, meaning: "the party's key in the case, made from the part, the party and the number of the member" },
+  { name: "group", type: "string", truth: true, meaning: "the key without the number of the member, which the flow view uses to draw a run of wallets as one column" },
+  { name: "pattern", type: "string", truth: true, meaning: "the id of the crime pattern of the library" },
+  { name: "part", type: "string", truth: true, meaning: "the id of the part that the party belongs to" },
+  { name: "end", type: "enum", truth: true, meaning: "the end of the pattern that the party is on", values: { source: "where the money comes from", hiding: "where the trail is hidden", "cash-out": "where the money is taken out" } },
+  { name: "kind", type: "string", truth: true, meaning: "the kind of party, or outside-account for a customer on an end that the bank does not see" },
+  { name: "label", type: "string", truth: true, meaning: "the party's label from the file of its part" },
+  { name: "account", type: "int", truth: true, nullable: true, meaning: "the account that fills the party", when: "the bank sees the end of the party and the planted pattern of that end remains" },
+  { name: "chain", type: "string", truth: true, nullable: true, meaning: "the chain of a party on a chain", when: "the party is on a chain" },
+  { name: "address", type: "string", truth: true, nullable: true, meaning: "the address that the generator made for a party on a chain", when: "the party is on a chain" },
+];
+
+export const CASE_LEG_FIELDS: FieldSpec[] = [
+  { name: "caseId", type: "int", truth: true, meaning: "the case the payment is in" },
+  { name: "seq", type: "int", truth: true, meaning: "the number of the payment in the case, in the order of its time" },
+  { name: "pattern", type: "string", truth: true, meaning: "the id of the crime pattern of the library" },
+  { name: "part", type: "string", truth: true, meaning: "the id of the part that the payment belongs to" },
+  { name: "step", type: "string", truth: true, meaning: "the id of the step of the part that the payment belongs to" },
+  { name: "day", type: "int", truth: true, meaning: "the day on which the payment happens" },
+  { name: "minute", type: "int", truth: true, meaning: "the minute of the day on which the payment happens" },
+  { name: "from", type: "string", truth: true, meaning: "the key of the party that pays" },
+  { name: "to", type: "string", truth: true, meaning: "the key of the party that receives" },
+  { name: "via", type: "string", truth: true, meaning: "how the money moves: a rail of the bank, chain for a payment on a chain, or off-record for a payment that no one records" },
+  { name: "asset", type: "string", truth: true, meaning: "the asset that moves" },
+  { name: "chain", type: "string", truth: true, nullable: true, meaning: "the chain of a payment on a chain", when: "the payment is on a chain" },
+  { name: "planned", type: "number", truth: true, meaning: "the amount of the payment in pounds in the first price, before any transaction was written" },
+  { name: "amount", type: "number", truth: true, meaning: "the amount that moved in pounds, or 0 where the payment did not happen" },
+  { name: "seenBy", type: "enum", truth: true, meaning: "who records the payment", values: { bank: "the bank's own records", chain: "the public chain", none: "no one" } },
+  { name: "tx", type: "int", truth: true, nullable: true, meaning: "the id of the transaction", when: "the bank wrote the payment" },
+  { name: "say", type: "string", truth: true, meaning: "the sentence of the step that the payment belongs to" },
 ];
 
 /** Check one object against a list of specs. Returns the first problem, or null. */
@@ -201,7 +246,7 @@ export function checkRecord(rec: Record<string, unknown>, specs: FieldSpec[], wh
   for (const k of Object.keys(rec)) if (!names.has(k)) return `${where}: field "${k}" is not in the data dictionary`;
   for (const f of specs) {
     const v = rec[f.name];
-    if (v === undefined) return `${where}: field "${f.name}" is missing`;
+    if (v === undefined) { if (f.optional) continue; return `${where}: field "${f.name}" is missing`; }
     if (v === null) { if (!f.nullable) return `${where}: field "${f.name}" is null and may not be`; continue; }
     switch (f.type) {
       case "int": if (typeof v !== "number" || !Number.isInteger(v)) return `${where}: "${f.name}" = ${String(v)} should be a whole number`; break;

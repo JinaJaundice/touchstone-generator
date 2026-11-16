@@ -40,3 +40,6 @@ The identifiers are those of the register of sources in the working repository. 
 | S52 | Santander UK, "Cryptocurrency": the limit on payments to crypto exchanges |
 | S54 | ONS, Intergenerational transfers: the distribution of inheritances, gifts and loans, Great Britain: 2014 to 2016 |
 | S56 | ONS, Employee earnings in the UK: 2024 (Annual Survey of Hours and Earnings), Table 6 by age group. The repository checks the take-home pay of 4 age bands against it and takes no figure from it |
+| S57 | Alexander Browder, Confronting the Illicit-Finance Hydra in Crypto Markets, Henry Jackson Society, March 2026. The generator takes the stages of on-ramp, layering and off-ramp and the steps of each method from it, for the crime patterns that are held as files |
+| S58 | Gadi Evron, Adversary Brains: Hypothesis-Based Logical Signatures for Threat Actor Detection with LLMs, arXiv 2610.35624v1, 26 October 2026. The form of a pattern file follows it, with parties and links, required and supporting steps, and a source for each step |
+| S59 | FATF, Targeted Report on Stablecoins and Unhosted Wallets: Peer-to-Peer Transactions, March 2026. The generator takes the indicator of chains of more than 25 rapid hops from it, and the assumed number of wallets in a peel chain is set around that figure |

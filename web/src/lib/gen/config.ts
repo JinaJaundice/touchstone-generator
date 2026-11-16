@@ -1,4 +1,5 @@
-import type { GenConfig, AmlTypology, FraudTypology, CryptoTypology, TypologyConfig, CountryMix } from "./types";
+import type { GenConfig, AmlTypology, FraudTypology, CryptoTypology, LibrarySetting, TypologyConfig, CountryMix } from "./types";
+import labelsFile from "./patterns/labels.json";
 
 /* The defaults are a UK retail and small-business book. Counts are per
    1,000 accounts so a 500-account rehearsal and a 10,000-account run carry
@@ -164,6 +165,32 @@ export function normaliseMix(m: Partial<CountryMix> | undefined, fallback: Count
   return { eea: v.eea / s, other: v.other / s, corridor: v.corridor / s, highRisk: v.highRisk / s };
 }
 
+/** The library patterns of labels.json by id, each with the ends of it that a bank can see, its own end and its rate. */
+const LIBRARY_PATTERNS: ReadonlyMap<string, { allowed: readonly string[]; bankSees: LibrarySetting["bankSees"]; per1k: number }> =
+  new Map(labelsFile.patterns.map((p) => [p.id, { allowed: p.allowed, bankSees: p.bankSees as LibrarySetting["bankSees"], per1k: p.per1k }]));
+
+/** A number held to a range, or the fallback where the value is no finite number. */
+const clampTo = (x: unknown, lo: number, hi: number, fallback: number): number => (typeof x === "number" && isFinite(x) ? Math.max(lo, Math.min(hi, x)) : fallback);
+
+/** The settings of the library patterns. An entry is kept where its key is the id of a pattern of labels.json, takes the pattern's value for each field it does not hold, and is held to its range. It gives undefined where no entry remains, so that the settings of a user who set nothing are unchanged. */
+export function normaliseLibrary(lib: unknown): Record<string, LibrarySetting> | undefined {
+  if (!lib || typeof lib !== "object") return undefined;
+  const out: Record<string, LibrarySetting> = {};
+  for (const [id, raw] of Object.entries(lib as Record<string, Partial<LibrarySetting> | null>)) {
+    const p = LIBRARY_PATTERNS.get(id);
+    if (!p) continue;
+    const v = raw ?? {};
+    out[id] = {
+      on: !!v.on,
+      per1k: clampTo(v.per1k, 0, 5, p.per1k),
+      size: clampTo(v.size, 0.25, 4, 1),
+      speed: clampTo(v.speed, 0.25, 4, 1),
+      bankSees: typeof v.bankSees === "string" && p.allowed.includes(v.bankSees) ? v.bankSees : p.bankSees,
+    };
+  }
+  return Object.keys(out).length ? out : undefined;
+}
+
 /** Bring any configuration up to date and into range. A saved bank or a link written before a
     setting existed gets the standard value for it, so old links still open. */
 export function normaliseConfig(c: GenConfig): GenConfig {
@@ -179,9 +206,12 @@ export function normaliseConfig(c: GenConfig): GenConfig {
     : Object.fromEntries(Object.keys(FRAUD_DEFAULTS).map((k) => [k, (legacy[k] as TypologyConfig | undefined) ?? FRAUD_DEFAULTS[k as FraudTypology]])) as Record<FraudTypology, TypologyConfig>;
   const aml = Object.fromEntries(Object.keys(AML_DEFAULTS).map((k) => [k, (c.aml as Record<string, TypologyConfig> | undefined)?.[k] ?? AML_DEFAULTS[k as AmlTypology]])) as Record<AmlTypology, TypologyConfig>;
   const crypto = Object.fromEntries(Object.keys(CRYPTO_DEFAULTS).map((k) => [k, (c.crypto as Record<string, TypologyConfig> | undefined)?.[k] ?? CRYPTO_DEFAULTS[k as CryptoTypology]])) as Record<CryptoTypology, TypologyConfig>;
+  const { library: libraryIn, ...rest } = c;
+  const library = normaliseLibrary(libraryIn);
   return {
-    ...c,
+    ...rest,
     aml, fraud, crypto,
+    ...(library ? { library } : {}),
     // the two regulatory lines are sourced (register S45, S46); a link that carries the old EUR 1,000-derived figure takes today's GBP 800
     travelRuleThreshold: c.travelRuleThreshold === 1000 || !c.travelRuleThreshold ? 800 : c.travelRuleThreshold,
     cashThreshold: c.cashThreshold || 10000,

@@ -2,7 +2,7 @@
 // It reads the case view of lib/gen/caseView.ts and nothing from the working app, so the public copy can carry it.
 
 import { Fragment, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from "react";
-import { caseSteps, flowColumns, memberName, partyName, stepTitle, type CaseView, type FlowLeg, type FlowParty } from "./gen/caseView";
+import { DRAWN_COLUMNS, caseSteps, flowColumns, ledgerDotY, memberRef, splitShortAddress, partyName, stepTitle, withinLabel, type CaseView, type FlowLeg, type FlowParty } from "./gen/caseView";
 import type { Calendar } from "./gen/calendar";
 import { METHOD_SHORT, RAIL_LABEL, dayLabel, fmtGbp, fmtMinute, plural } from "./format";
 import { Button, Empty } from "./ui";
@@ -15,16 +15,17 @@ const SEEN_WORD: Record<FlowLeg["seenBy"], string> = { bank: "in the bank's reco
 const FOLD_OVER = 6;
 /** The height of the line in a cell, from the top of the row. */
 const LINE_Y = "64%";
+/** The height of the dot in a row whose payer and payee share a column, lower so that a label of 2 lines does not meet it. */
+const DOT_Y_SHARED = "86%";
 /** A ledger narrower than this many pixels is the compact form. */
 const COMPACT_UNDER = 560;
-/** A ledger at least this many pixels wide is drawn, where it has at most 12 columns. */
+/** A ledger at least this many pixels wide is drawn, where it has at most DRAWN_COLUMNS columns and the wrapper holds 330 pixels and this many for each column. */
 const DRAWN_FROM = 720;
+const DRAWN_COLUMN = 88;
 
 const capital = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 /** A sentence with a full stop at its end. */
 const stop = (s: string) => (s.endsWith(".") ? s : s + ".");
-/** A long address as its first 6 characters, an ellipsis and its last 4. */
-const shortRef = (s: string) => (s.length > 10 ? `${s.slice(0, 6)}…${s.slice(-4)}` : s);
 
 /** The width in pixels of an element, kept up to date while it is on the page. Before a width is known it is 1000. */
 function useWidth(ref: { current: HTMLElement | null }, on: boolean): number {
@@ -42,8 +43,7 @@ function useWidth(ref: { current: HTMLElement | null }, on: boolean): number {
 
 /** The short name that a row shows for a party in a shared column, and the full address for its title. */
 function nameOf(p: FlowParty): { text: string; title?: string } {
-  const name = memberName(p);
-  return p.address ? { text: shortRef(p.address), title: p.address } : { text: name };
+  return { text: memberRef(p), title: p.address ?? undefined };
 }
 
 /** The When cell: the date, and the time in the faint style under it. */
@@ -53,6 +53,7 @@ function WhenCell({ leg, cal }: { leg: FlowLeg; cal: Calendar }) {
 
 /** The rail and the method of a payment in words, such as "Faster Payments, standing order". */
 function howText(leg: FlowLeg): string {
+  if (leg.how === "off-record") return "A private deal";
   const method = METHOD_SHORT[leg.how];
   return `${RAIL_LABEL[leg.rail] ?? leg.rail}${method ? `, ${method}` : ""}`;
 }
@@ -74,10 +75,16 @@ function AmountCell({ leg }: { leg: FlowLeg }) {
   );
 }
 
+/** A name with its short address, such as "bc1q09…64dk", in an element that does not wrap, so the address never breaks after its dots. */
+function NameText({ name }: { name: string }) {
+  const { head, address } = splitShortAddress(name);
+  return address ? <>{head}<span className="flow-ref">{address}</span></> : <>{name}</>;
+}
+
 /** The name of a party for a row of the text form and the compact form, with the full address for its title. */
 function PartyName({ p, mid }: { p: FlowParty; mid?: boolean }) {
   const name = partyName(p);
-  return <span title={p.address ?? undefined}>{mid ? name.charAt(0).toLowerCase() + name.slice(1) : name}</span>;
+  return <span title={p.address ?? undefined}><NameText name={mid ? name.charAt(0).toLowerCase() + name.slice(1) : name} /></span>;
 }
 
 /** One payment of the drawn form: the line from the payer's column to the payee's column. A party with no column draws no line. */
@@ -89,6 +96,8 @@ function DrawnRow({ leg, cols, at, byKey, cal }: { leg: FlowLeg; cols: ReturnTyp
   const from = byKey.get(leg.from);
   const to = byKey.get(leg.to);
   const both = fi !== undefined && ti !== undefined;
+  // where the payer and the payee share a column no line runs between columns, so the dot sits low enough to clear a label of 2 lines
+  const y = ledgerDotY(fi, ti, LINE_Y, DOT_Y_SHARED);
   return (
     <tr>
       <WhenCell leg={leg} cal={cal} />
@@ -97,20 +106,21 @@ function DrawnRow({ leg, cols, at, byKey, cal }: { leg: FlowLeg; cols: ReturnTyp
         const pays = i === fi;
         const gets = i === ti;
         let name: { text: string; title?: string } | null = null;
-        if (c.count > 1 && (pays || gets) && from && to) {
+        if ((pays || gets) && from && to) {
           if (pays && gets) {
-            const a = nameOf(from), b = nameOf(to);
-            name = { text: `${a.text} to ${b.text}`, title: [a.title, b.title].filter(Boolean).join(" to ") || undefined };
-          } else name = nameOf(pays ? from : to);
+            // One column holds both ends and no arrow can show the direction, so the words say who pays whom.
+            // The label is empty for a party with no reference, and the dot and the text for a screen reader remain.
+            name = { text: withinLabel(from, to), title: [from.address, to.address].filter(Boolean).join(" to ") || undefined };
+          } else if (c.count > 1) name = nameOf(pays ? from : to);
         }
         return (
           <td className="flow-cell" key={c.key}>
             {i === 0 && (
               <svg className="flow-draw" aria-hidden="true" style={{ width: `calc(${n} * 100%)` }}>
-                {both && fi !== ti && <line className={"flow-line seen-" + leg.seenBy} x1={pct(fi)} x2={pct(ti)} y1={LINE_Y} y2={LINE_Y} />}
-                {fi !== undefined && <svg x={pct(fi)} y={LINE_Y} overflow="visible"><circle className="flow-end" r="2.5" /></svg>}
+                {both && fi !== ti && <line className={"flow-line seen-" + leg.seenBy} x1={pct(fi)} x2={pct(ti)} y1={y} y2={y} />}
+                {fi !== undefined && <svg x={pct(fi)} y={y} overflow="visible"><circle className="flow-end" r="2.5" /></svg>}
                 {both && fi !== ti && (
-                  <svg x={pct(ti)} y={LINE_Y} overflow="visible">
+                  <svg x={pct(ti)} y={y} overflow="visible">
                     <path className="flow-end" d={ti > fi ? "M-8,-3.5 L0,0 L-8,3.5 Z" : "M8,-3.5 L0,0 L8,3.5 Z"} />
                   </svg>
                 )}
@@ -118,7 +128,7 @@ function DrawnRow({ leg, cols, at, byKey, cal }: { leg: FlowLeg; cols: ReturnTyp
             )}
             {pays && <span className="sr-only">pays{to ? " " + partyName(to) : ""} </span>}
             {gets && <span className="sr-only">is paid by{from ? " " + partyName(from) : ""}</span>}
-            {name && <span className="flow-name" title={name.title}>{name.text}</span>}
+            {name && name.text && <span className="flow-name" title={name.title}>{name.text}</span>}
           </td>
         );
       })}
@@ -127,16 +137,25 @@ function DrawnRow({ leg, cols, at, byKey, cal }: { leg: FlowLeg; cols: ReturnTyp
   );
 }
 
+/** The words for a payment that has the same party on both sides: the funds change hands at that party. */
+function sameParty(leg: FlowLeg, p: FlowParty) {
+  const name = partyName(p);
+  return <>{leg.how === "off-record" ? "The funds change hands at " : "A payment within "}<span title={p.address ?? undefined}><NameText name={name.charAt(0).toLowerCase() + name.slice(1)} /></span></>;
+}
+
 /** One payment of the text form. */
 function TextRow({ leg, byKey, cal }: { leg: FlowLeg; byKey: Map<string, FlowParty>; cal: Calendar }) {
   const from = byKey.get(leg.from);
   const to = byKey.get(leg.to);
+  const same = !!from && leg.from === leg.to;
   return (
     <tr>
       <WhenCell leg={leg} cal={cal} />
       <HowCell leg={leg} />
-      {from ? <td><PartyName p={from} /></td> : <td />}
-      {to ? <td><PartyName p={to} /></td> : <td />}
+      {same ? <td colSpan={2}>{sameParty(leg, from)}</td> : <>
+        {from ? <td><PartyName p={from} /></td> : <td />}
+        {to ? <td><PartyName p={to} /></td> : <td />}
+      </>}
       <AmountCell leg={leg} />
     </tr>
   );
@@ -150,7 +169,7 @@ function CompactRow({ leg, byKey, cal }: { leg: FlowLeg; byKey: Map<string, Flow
     <tr>
       <td>
         <span className="flow-l1 val">{dayLabel(cal.date(leg.day), cal.weekday(leg.day))}, {fmtMinute(leg.minute)}</span>
-        <span className="flow-l2">{from ? <PartyName p={from} /> : null} to {to ? <PartyName p={to} mid /> : null}</span>
+        <span className="flow-l2">{from && leg.from === leg.to ? sameParty(leg, from) : <>{from ? <PartyName p={from} /> : null} to {to ? <PartyName p={to} mid /> : null}</>}</span>
         <span className="flow-sub">{howText(leg)}, {SEEN_WORD[leg.seenBy]}</span>
       </td>
       <AmountCell leg={leg} />
@@ -176,7 +195,7 @@ export function FlowLegend() {
 /**
  * The ledger of one case, grouped by step, in one of 3 forms that its own width chooses. It is compact where it is under
  * 560 pixels wide, drawn (with a line from payer to payee in the party columns and a key under the table) where it is at
- * least 720 pixels wide and the case has at most 12 columns, and a table of text in every other case. `shown` is the number
+ * least 720 pixels wide, has at most DRAWN_COLUMNS (8) columns and holds 88 pixels for each of them, and a table of text in every other case. `shown` is the number
  * of steps drawn from the first, and null draws every step.
  */
 export function FlowLedger({ view, shown, cal }: { view: CaseView; shown: number | null; cal: Calendar }) {
@@ -195,7 +214,7 @@ export function FlowLedger({ view, shown, cal }: { view: CaseView; shown: number
   }, [view, cols]);
   if (empty) return <Empty>This case has no payment in the data set.</Empty>;
 
-  const form: "compact" | "drawn" | "text" = width < COMPACT_UNDER ? "compact" : width >= DRAWN_FROM && cols.length <= 12 ? "drawn" : "text";
+  const form: "compact" | "drawn" | "text" = width < COMPACT_UNDER ? "compact" : width >= Math.max(DRAWN_FROM, 330 + cols.length * DRAWN_COLUMN) && cols.length <= DRAWN_COLUMNS ? "drawn" : "text";
   const drawn = form === "drawn";
   const { byKey, at } = maps;
   const steps = shown === null ? all : all.slice(0, Math.max(0, shown));
@@ -211,10 +230,10 @@ export function FlowLedger({ view, shown, cal }: { view: CaseView; shown: number
     <>
       <p className="flow-read">
         {drawn
-          ? "Each row is one payment of the case. Its line runs from the party that pays, at the dot, to the party that is paid, at the arrowhead. A column is one party or a group of parties of one kind, and a party is an account at this bank or someone outside it."
+          ? "Each row is one payment of the case. Its line runs from the party that pays, at the dot, to the party that is paid, at the arrowhead. A column holds one party, or a group of similar parties." + (cols.some((c) => c.count > 1) ? " Inside a shared column, a label gives the last 4 characters of the address of the wallet that pays and of the wallet that is paid." : "")
           : "Each row is one payment of the case, from the party that pays to the party that is paid. A party is an account at this bank or someone outside it."}
       </p>
-      <div className="tbl-wrap" tabIndex={0} ref={wrap} role="region" aria-label={`The payments of case ${view.caseId}`}>
+      <div className="tbl-wrap" tabIndex={0} ref={wrap} role="region" aria-label={view.caseId < 0 ? "The payments of the typical case" : `The payments of case ${view.caseId}`}>
         <table className={"tbl flow" + (drawn ? "" : " flow-text") + (form === "compact" ? " flow-compact" : "")} style={drawn ? ({ "--flow-cols": cols.length } as CSSProperties) : undefined}>
           <caption className="sr-only">{view.title}, {plural(view.rows.length, "payment")} and {plural(view.parties.length, "party", "parties")}</caption>
           {drawn && (
@@ -271,6 +290,13 @@ export function FlowLedger({ view, shown, cal }: { view: CaseView; shown: number
       {drawn && <FlowLegend />}
     </>
   );
+}
+
+/** What the ledger of a case draws with every step shown: the payments in its rows, the payments that its long steps fold behind a button, and its columns. */
+export function ledgerCounts(view: CaseView): { drawn: number; folded: number; columns: number } {
+  let folded = 0;
+  for (const s of caseSteps(view)) if (s.rows.length > FOLD_OVER) folded += s.rows.length - 4;
+  return { drawn: view.rows.length - folded, folded, columns: view.rows.length ? flowColumns(view).length : 0 };
 }
 
 /** A button of the step controls. It stays on the keyboard focus where it cannot act, and a press then does nothing. */

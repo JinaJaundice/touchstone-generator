@@ -306,12 +306,23 @@ h1, h2, h3, h4 { margin: 0; font-weight: 500; }
 .tbl thead th.num { padding-right: 0; }
 .tbl tbody th[scope="row"] { text-align: left; }
 .tbl .num + td, .tbl .num + th { padding-left: 14px; }
+/* the table of library patterns on a phone: the summary and the status go under the title, so no column is squeezed */
+.tbl-lib .lib-sub { display: none; }
+@media (max-width: 860px) {
+  .tbl-lib .lib-wide { display: none; }
+  .tbl-lib .lib-sub { display: block; margin-top: 4px; color: var(--muted); font-size: var(--t-tiny); line-height: 1.45; }
+  .tbl-lib thead th, .tbl-lib thead th.num { white-space: normal; padding-right: 8px; vertical-align: bottom; }
+  .tbl-lib tbody td { vertical-align: top; }
+  .tbl-lib tbody td.num { padding-left: 8px; }
+  .tbl-lib thead th:first-child, .tbl-lib tbody td:first-child { width: 44%; }
+  .tbl-lib thead th:nth-child(4), .tbl-lib tbody td:nth-child(4) { width: 34%; }
+}
 .flags { white-space: nowrap; }
 
 /* --------------------------------------------------- the ledger of a case */
 /* One planted case as a ruled table: a row for each payment, grouped by step, with a line from the payer's column to the payee's column.
    The line is solid where the bank's own records show the payment, dashed where only a chain shows it and dotted where no record shows it. */
-.flow { table-layout: fixed; min-width: calc(330px + var(--flow-cols, 2) * 64px); }
+.flow { table-layout: fixed; min-width: calc(330px + var(--flow-cols, 2) * 88px); }
 .flow.flow-text { table-layout: auto; min-width: 0; }
 .flow col.flow-c-when { width: 96px; }
 .flow col.flow-c-how { width: 130px; }
@@ -322,6 +333,7 @@ h1, h2, h3, h4 { margin: 0; font-weight: 500; }
 .flow-detail { display: block; font-weight: 400; font-stretch: normal; letter-spacing: 0; text-transform: none; color: var(--faint); }
 .flow tbody td { padding: 5px 12px 5px 0; font-size: var(--t-tiny); vertical-align: top; line-height: 1.3; }
 .flow tbody td.num { padding-right: 0; padding-left: 12px; }
+.flow-ref { white-space: nowrap; }
 .flow-sub { display: block; font-size: var(--t-micro); color: var(--faint); }
 .flow tbody td.flow-cell { position: relative; padding: 0; height: 40px; }
 .flow tbody td.flow-cell::before { content: ""; position: absolute; top: 0; bottom: 0; left: 50%; border-left: 1px solid var(--rule-soft); }
@@ -330,7 +342,7 @@ h1, h2, h3, h4 { margin: 0; font-weight: 500; }
 .flow-line.seen-chain { stroke-dasharray: 6 4; }
 .flow-line.seen-none { stroke-dasharray: 1 5; stroke-linecap: round; }
 .flow-end { fill: var(--ink); stroke: none; }
-.flow-name { position: absolute; top: 4px; left: 3px; right: 3px; text-align: center; font-size: var(--t-micro); font-stretch: 80%; line-height: 1.2; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.flow-name { position: absolute; top: 2px; left: 3px; right: 3px; text-align: center; font-size: var(--t-micro); font-stretch: 80%; line-height: 1.1; color: var(--muted); white-space: normal; overflow-wrap: anywhere; }
 .flow tbody tr.flow-step th { text-align: left; padding: 14px 0 6px; border-bottom: 1px solid var(--rule); font-size: var(--t-small); font-weight: 400; color: var(--ink); white-space: normal; }
 .flow tbody:first-of-type tr.flow-step th { padding-top: 10px; }
 .flow-step .caps { margin-right: 10px; }
@@ -603,6 +615,9 @@ select.select { font: inherit; font-size: var(--t-small); padding: 5px 28px 5px 
 .typo-name { font-size: var(--t-small); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .typo-rate { accent-color: var(--ink); width: 100%; }
 .typo-count { font-size: var(--t-tiny); text-align: right; color: var(--muted); }
+.lib-list .page-sub { max-width: 56ch; }
+.lib-page p, .lib-page .page-sub, .lib-page .sect-sub, #library > .sect-body .sect-sub { max-width: 66ch; }
+.lib-page .flow-read { max-width: 66ch; }
 .dl-list { display: flex; flex-direction: column; }
 .dl { display: flex; flex-direction: column; gap: 2px; text-align: left; background: none; border: 0; border-bottom: 1px solid var(--rule-soft); padding: 9px 0; cursor: pointer; color: var(--ink); }
 .dl:hover b { text-decoration: underline; text-underline-offset: 3px; }

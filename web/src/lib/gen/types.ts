@@ -14,6 +14,8 @@
    docs/DATA_DICTIONARY.md, and scripts/qa-gen.ts checks each data set
    against that dictionary. */
 
+import labelsFile from "./patterns/labels.json";
+
 export type Rail = "FPS" | "BACS" | "CHAPS" | "CARD" | "CASH" | "INTL" | "CRYPTO" | "INTERNAL";
 
 export type TxType =
@@ -69,6 +71,8 @@ export type CryptoTypology = "offramp_layering" | "travel_rule_structuring" | "m
 /** The receiving side of a fraud case: the mule accounts a scam or a takeover pays. Planted with its case, never on its own. */
 export type DerivedTypology = "mule_account";
 export type Typology = AmlTypology | FraudTypology | CryptoTypology | DerivedTypology;
+/** The key of a planted pattern: a built-in name, or "lib." and the id of a library pattern with its end. */
+export type PatternKey = Typology | `lib.${string}`;
 
 /** Which control owns a planted pattern: transaction monitoring (money laundering), fraud, both (mules), crypto monitoring, or sanctions screening. */
 export type Family = "aml" | "mule" | "fraud" | "crypto" | "sanctions";
@@ -237,7 +241,7 @@ export interface Tx {
   crypto: CryptoFacts | null;
   /* truth. -1 and null on every ordinary transaction; no rule reads these */
   patternId: number;
-  typology: Typology | null;
+  typology: PatternKey | null;
   family: Family | null;
   role: LegRole | null;
   /** the case a pattern belongs to: a scam and the mule accounts it paid are two patterns of one case */
@@ -256,7 +260,7 @@ export interface AccountEvent {
   ipCountry: string;
   /* truth: -1 on an ordinary event */
   patternId: number;
-  typology: Typology | null;
+  typology: PatternKey | null;
 }
 
 /** Money that arrived on an account without a transaction: laundering funds that were already there (the hidden setting, or placement switched off, AMLGentex's convention). Listed so a balance can be followed from the records. */
@@ -270,7 +274,7 @@ export interface Adjustment {
 
 export interface PatternInstance {
   id: number;
-  typology: Typology;
+  typology: PatternKey;
   family: Family;
   /** the case this pattern is part of; a pattern on its own is its own case */
   caseId: number;
@@ -286,6 +290,8 @@ export interface PatternInstance {
   story: string;
   /** the register entries the pattern's shape comes from */
   sources: string[];
+  /** the library pattern and the end of it that this planted pattern is; absent on a built-in pattern */
+  library?: { pattern: string; end: "source" | "cash-out" };
 }
 
 export interface TypologyConfig {
@@ -362,7 +368,12 @@ export interface GenConfig {
   aml: Record<AmlTypology, TypologyConfig>;
   fraud: Record<FraudTypology, TypologyConfig>;
   crypto: Record<CryptoTypology, TypologyConfig>;
+  /** the library patterns (patterns/library), keyed by pattern id; absent or all off plants none */
+  library?: Record<string, LibrarySetting>;
 }
+
+/** The settings of one library pattern: whether it is on, its cases for each 1,000 accounts, the size and speed of a case, and which end of it the bank sees. */
+export interface LibrarySetting { on: boolean; per1k: number; size: number; speed: number; bankSees: "source" | "cash-out" | "both" }
 
 /** shares of the four country pools: the EEA, other lower-risk countries, the UK's remittance corridors, and the FATF lists */
 export interface CountryMix { eea: number; other: number; corridor: number; highRisk: number }
@@ -397,6 +408,55 @@ export interface DatasetSummary {
   cryptoAccounts: number;
   events: number;
   declined: number;
+  /** the library cases planted: their number, the rows of the case legs, the entries skipped and the patterns that reached the cap; absent where no library pattern was on */
+  library?: { cases: number; legs: number; skipped: number; capped: number };
+}
+
+/** One case of a library pattern: its value in the first price, its first and last day, whether a leg was written for less than planned, whether a required step did not happen, and how many of the legs in the bank's records were written in full. */
+export interface LibraryCase { caseId: number; pattern: string; bankSees: "source" | "cash-out" | "both"; value: number; startDay: number; endDay: number; reduced: boolean; cutShort: boolean; bankLegs: number; inFull: number }
+
+/** What the planter did: the cases that remain, the cases that could not be planted with the reason, and the patterns that reached the cap. */
+export interface LibraryRecord {
+  version: string;
+  cases: LibraryCase[];
+  skipped: { pattern: string; reason: "no-account" | "no-rail" | "no-transaction"; party: string | null; need: string | null; cases: number }[];
+  capped: string[];
+}
+
+/** One party of a planted case, as a row of the answer key (docs/PATTERN_FORMAT.md section 8). */
+export interface Party {
+  caseId: number;
+  key: string;
+  group: string;
+  pattern: string;
+  part: string;
+  end: "source" | "hiding" | "cash-out";
+  kind: string;
+  label: string;
+  account: number | null;
+  chain: string | null;
+  address: string | null;
+}
+
+/** One planned leg of a planted case, as a row of the answer key (docs/PATTERN_FORMAT.md section 8). */
+export interface CaseLeg {
+  caseId: number;
+  seq: number;
+  pattern: string;
+  part: string;
+  step: string;
+  day: number;
+  minute: number;
+  from: string;
+  to: string;
+  via: string;
+  asset: string;
+  chain: string | null;
+  planned: number;
+  amount: number;
+  seenBy: "bank" | "chain" | "none";
+  tx: number | null;
+  say: string;
 }
 
 export interface Dataset {
@@ -413,6 +473,12 @@ export interface Dataset {
   /** money that arrived without a transaction */
   adjustments: Adjustment[];
   patterns: PatternInstance[];
+  /** the parties of the planted library cases; empty where no library pattern was planted */
+  parties: Party[];
+  /** the planned legs of the planted library cases; empty where no library pattern was planted */
+  caseLegs: CaseLeg[];
+  /** what the planter did; absent where no library pattern was on */
+  library?: LibraryRecord;
   wallets: WalletRef[];
   summary: DatasetSummary;
   /** what the wallet pool and the account model of the run rest on */
@@ -514,17 +580,24 @@ export const CRYPTO_TYPOLOGIES: CryptoTypology[] = ["offramp_layering", "travel_
 export const ALL_TYPOLOGIES = Object.keys(TYPOLOGY_FAMILY) as Typology[];
 export const typologiesOf = (families: Family[]): Typology[] => ALL_TYPOLOGIES.filter((t) => families.includes(TYPOLOGY_FAMILY[t]));
 
-/** The full name of a crime pattern. For a key that is not one of the 38 built-in names it gives the key itself. A later phase adds the keys of library patterns, which start with "lib.". */
+/** The names of the library keys: for each key of a library pattern in patterns/labels.json, its label, its short name and the family of its end. */
+const LIBRARY_NAMES: ReadonlyMap<string, { label: string; short: string; family: Family }> = new Map(
+  labelsFile.patterns.flatMap((p) => p.keys.map((k) => [k.key, { label: k.label, short: k.short, family: k.family as Family }] as const)));
+
+/** The full name of a crime pattern. A key of a library pattern gives its entry in labels.json. For any other key that is not one of the 38 built-in names it gives the key itself. */
 export function patternLabel(key: string): string {
-  return Object.prototype.hasOwnProperty.call(TYPOLOGY_LABEL, key) ? TYPOLOGY_LABEL[key as Typology] : key;
+  if (Object.prototype.hasOwnProperty.call(TYPOLOGY_LABEL, key)) return TYPOLOGY_LABEL[key as Typology];
+  return LIBRARY_NAMES.get(key)?.label ?? key;
 }
-/** The short name of a crime pattern. For a key that is not one of the 38 built-in names it gives the key itself. A later phase adds the keys of library patterns, which start with "lib.". */
+/** The short name of a crime pattern. A key of a library pattern gives its entry in labels.json. For any other key that is not one of the 38 built-in names it gives the key itself. */
 export function patternShort(key: string): string {
-  return Object.prototype.hasOwnProperty.call(TYPOLOGY_SHORT, key) ? TYPOLOGY_SHORT[key as Typology] : key;
+  if (Object.prototype.hasOwnProperty.call(TYPOLOGY_SHORT, key)) return TYPOLOGY_SHORT[key as Typology];
+  return LIBRARY_NAMES.get(key)?.short ?? key;
 }
-/** The family of a crime pattern. For a key that is not one of the 38 built-in names it gives "aml". A later phase adds the keys of library patterns, which start with "lib.". */
+/** The family of a crime pattern. A key of a library pattern gives the family of its end. For any other key that is not one of the 38 built-in names it gives "aml". */
 export function patternFamily(key: string): Family {
-  return Object.prototype.hasOwnProperty.call(TYPOLOGY_FAMILY, key) ? TYPOLOGY_FAMILY[key as Typology] : "aml";
+  if (Object.prototype.hasOwnProperty.call(TYPOLOGY_FAMILY, key)) return TYPOLOGY_FAMILY[key as Typology];
+  return LIBRARY_NAMES.get(key)?.family ?? "aml";
 }
 
 /* Countries, in four pools the bank builder mixes.

@@ -10,23 +10,17 @@ import { dailyBehaviour, initDaily, scheduleNormalModels } from "./normal";
 import { scheduleAml } from "./aml";
 import { scheduleFraud } from "./fraud";
 import { scheduleCrypto } from "./crypto";
+import { patternsOn, scheduleLibrary, settleLibrary } from "./patterns/plant";
 import { World } from "./world";
 import { makeCalendar } from "./calendar";
-import type { Dataset, DatasetSummary, GenConfig, Tx, WalletClass, WalletRef } from "./types";
+import { STREAMS, streamSeed, type StreamTag } from "./streams";
+import { classOf } from "./walletClass";
+import type { Dataset, DatasetSummary, GenConfig, Tx, WalletRef } from "./types";
 
 export type Progress = (stage: string, done: number, total: number) => void;
 
-/** Map the behaviour class that the wallet pool gives an address onto the classes the rail uses. A class of "government criminal blacklist" is not a listing, so it maps to unknown; "sanctioned" is kept for an address on the OFAC list. */
-export function classOf(type: string): WalletClass {
-  switch (type) {
-    case "centralized exchange": return "exchange";
-    case "tumbler": case "money laundering": return "mixer";
-    case "darknet market": case "blackmail": case "cyber-security service": return "darknet";
-    case "gambling": return "gambling";
-    case "individual wallet": case "P2P financial service": case "P2P financial infrastructure": return "personal";
-    default: return "unknown";
-  }
-}
+/** The class of a wallet, moved to walletClass.ts and exported again here under the same name. */
+export { classOf };
 
 /** The wallet pool as wallet_pool.json writes it. */
 export function readWalletPool(j: { wallets: { id: string; chain: "bitcoin"; label: "illicit" | "licit" | "unknown"; predicted: string; conf: number }[] }): WalletRef[] {
@@ -41,31 +35,9 @@ export function readWalletPool(j: { wallets: { id: string; chain: "bitcoin"; lab
 export { GENERATOR_VERSION } from "./version";
 import { GENERATOR_VERSION } from "./version";
 
-/** lowbias32 (Wellons, 2018): a 32-bit mixer with near-ideal avalanche, so two
-    inputs that differ in one bit give unrelated outputs. Seeds are mixed, never
-    used raw, for the reason O'Neill gives for seed sequences: a seed and its
-    neighbour must start unrelated streams. */
-function mix32(x: number): number {
-  x = (x ^ (x >>> 16)) >>> 0;
-  x = Math.imul(x, 0x7feb352d) >>> 0;
-  x = (x ^ (x >>> 15)) >>> 0;
-  x = Math.imul(x, 0x846ca68b) >>> 0;
-  return (x ^ (x >>> 16)) >>> 0;
-}
-const tagHash = (tag: string): number => { let h = 0x811c9dc5; for (let i = 0; i < tag.length; i++) { h ^= tag.charCodeAt(i); h = Math.imul(h, 0x01000193) >>> 0; } return h >>> 0; };
-
-/** The families of activity that draw from their own stream. Ordinary life, each
-    crime family and the running of the days are separate, the way a world
-    generator gives each structure its own salted seed and a splittable
-    generator hands each task its own split: change one dial and only that
-    family's draws change, and the rest of the period stays as it was. */
-export const STREAMS = ["life", "aml", "fraud", "crypto", "days"] as const;
-export type StreamTag = (typeof STREAMS)[number];
-
-/** The seed of one stream of one period of one bank: the seed number, the period and the family, mixed. The same three always give the same stream. */
-export function streamSeed(seed: number, period: number, tag: StreamTag): number {
-  return mix32((mix32(seed >>> 0) ^ Math.imul(period, 0x9e3779b1) ^ tagHash(tag)) >>> 0);
-}
+/** The streams, moved to streams.ts and exported again here under the same names. */
+export { STREAMS, streamSeed };
+export type { StreamTag };
 
 export function generate(input: GenConfig, walletPool: WalletRef[], progress?: Progress, poolAbout?: string): Dataset {
   const cfg = normaliseConfig(input);
@@ -101,6 +73,8 @@ export function generate(input: GenConfig, walletPool: WalletRef[], progress?: P
   progress?.("planting crypto patterns", 0, 1);
   stream("crypto");
   scheduleCrypto(w);
+  if (patternsOn(cfg).length) progress?.("planting library patterns", 0, 1);
+  scheduleLibrary(w);
 
   stream("days");
   for (let day = 0; day < cfg.days; day++) {
@@ -136,6 +110,8 @@ export function generate(input: GenConfig, walletPool: WalletRef[], progress?: P
       if (a.patterns.length === 0) { a.isSar = false; a.isFraud = false; a.fraudRole = null; }
     }
   }
+  // the cases of the library patterns are settled against the transactions that were written
+  settleLibrary(w);
   // an account's flags follow the patterns it is still in: laundering, mule, crypto roles make it SAR; any fraud or mule role makes it fraud
   const byId = new Map(w.patterns.map((p) => [p.id, p]));
   for (const a of w.accounts) {
@@ -162,6 +138,9 @@ export function generate(input: GenConfig, walletPool: WalletRef[], progress?: P
     events: w.events,
     adjustments: w.adjustments,
     patterns: w.patterns,
+    parties: w.parties,
+    caseLegs: w.caseLegs,
+    ...(w.library ? { library: w.library } : {}),
     wallets: walletPool,
     summary,
     grounding: {
@@ -213,5 +192,6 @@ function summarise(txs: Tx[], w: World, cfg: GenConfig): DatasetSummary {
     cryptoAccounts: w.accounts.filter((a) => a.wallet).length,
     events: w.events.length,
     declined,
+    ...(w.library ? { library: { cases: w.library.cases.length, legs: w.caseLegs.length, skipped: w.library.skipped.reduce((a, e) => a + e.cases, 0), capped: w.library.capped.length } } : {}),
   };
 }

@@ -1,0 +1,52 @@
+{
+  "about": "The names of each pattern of the library and of the keys that its planted patterns take, from the files under parts/ and library/. The script web/scripts/write-references.ts writes this file, so do not edit it by hand.",
+  "patterns": [
+    {
+      "id": "ransom-through-a-mixer",
+      "title": "A ransom paid in bitcoin and moved through a mixer",
+      "short": "Ransom, mixer",
+      "allowed": [
+        "source",
+        "cash-out",
+        "both"
+      ],
+      "bankSees": "source",
+      "per1k": 0.4,
+      "keys": [
+        {
+          "key": "lib.ransom-through-a-mixer.source",
+          "end": "source",
+          "family": "fraud",
+          "label": "A ransom paid in bitcoin and moved through a mixer (source)",
+          "short": "Ransom, mixer (source)"
+        },
+        {
+          "key": "lib.ransom-through-a-mixer.cash-out",
+          "end": "cash-out",
+          "family": "aml",
+          "label": "A ransom paid in bitcoin and moved through a mixer (cash-out)",
+          "short": "Ransom, mixer (cash-out)"
+        }
+      ]
+    },
+    {
+      "id": "stolen-funds-through-a-peel-chain",
+      "title": "Stolen exchange funds peeled through new wallets and sold at the bank",
+      "short": "Stolen funds, peel chain",
+      "allowed": [
+        "cash-out"
+      ],
+      "bankSees": "cash-out",
+      "per1k": 0.4,
+      "keys": [
+        {
+          "key": "lib.stolen-funds-through-a-peel-chain.cash-out",
+          "end": "cash-out",
+          "family": "crypto",
+          "label": "Stolen exchange funds peeled through new wallets and sold at the bank",
+          "short": "Stolen funds, peel chain"
+        }
+      ]
+    }
+  ]
+}

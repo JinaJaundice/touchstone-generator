@@ -1,0 +1,102 @@
+{
+  "schema": "touchstone-part/1",
+  "id": "peel-chain",
+  "kind": "hiding",
+  "status": "tested",
+  "title": "A peel chain through new wallets",
+  "short": "Peel chain",
+  "summary": "The funds pass through a run of new wallets. Each hop sends a small share to a collecting wallet and the rest onwards.",
+  "references": [
+    {
+      "id": "S57",
+      "pages": "19, 28, 29"
+    },
+    {
+      "id": "S59",
+      "pages": "42"
+    }
+  ],
+  "routes": [
+    {
+      "from": "any",
+      "to": "same"
+    }
+  ],
+  "entry": "first",
+  "exit": "collector",
+  "hides": {
+    "chance": 0.05,
+    "basis": {
+      "kind": "assumed",
+      "note": "No source read for this part publishes how often a screening tool follows funds through a peel chain. The report describes an investigation that followed funds through peel chains, so the value is set low. It means that the trail is lost in 1 case in 20."
+    }
+  },
+  "parties": [
+    {
+      "id": "first",
+      "kind": "wallet",
+      "label": "the wallet that holds the funds",
+      "reuse": "case"
+    },
+    {
+      "id": "collector",
+      "kind": "wallet",
+      "label": "the wallet that collects the peeled funds",
+      "reuse": "case"
+    }
+  ],
+  "steps": [
+    {
+      "id": "hops",
+      "kind": "chain",
+      "say": "The funds pass through a run of new wallets, a few minutes apart.",
+      "from": "first",
+      "to": "collector",
+      "via": "chain",
+      "asset": "in",
+      "through": {
+        "new": "wallet",
+        "count": [
+          20,
+          60
+        ]
+      },
+      "amount": {
+        "of": "held",
+        "share": [
+          1,
+          1
+        ]
+      },
+      "peel": {
+        "to": "collector",
+        "share": [
+          0.02,
+          0.08
+        ],
+        "say": "Each wallet sends a small share to the collecting wallet."
+      },
+      "start": {
+        "after": "entry",
+        "minutes": [
+          1,
+          30
+        ]
+      },
+      "between": {
+        "minutes": [
+          1,
+          20
+        ]
+      },
+      "need": "required",
+      "varies": "ephemeral",
+      "basis": {
+        "kind": "reported",
+        "ref": "S57",
+        "pages": "28, 29",
+        "note": "The report describes small fractions sent on in quick succession, often across hundreds of wallets. The FATF report that the part cites lists chains of more than 25 rapid hops among its indicators of terrorist and proliferation financing. The count of 20 to 60 wallets is assumed. It is set around that figure and is far below the hundreds of wallets that the report describes. The share of 2% to 8%, the single collecting wallet and the waits are assumed."
+      }
+    }
+  ]
+}

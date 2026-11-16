@@ -5,7 +5,7 @@
    system without a conversion step. The writer is loaded only when a file is
    asked for, so the page itself carries none of its weight. */
 
-import type { Account, Dataset, Tx } from "./types";
+import type { Account, CaseLeg, Dataset, Party, Tx } from "./types";
 
 export type ParquetType = "INT32" | "DOUBLE" | "STRING" | "BOOLEAN";
 export interface ParquetColumn { name: string; type: ParquetType; nullable: boolean }
@@ -98,7 +98,53 @@ export const ACCOUNT_COLUMNS: ParquetColumn[] = [
   { name: "patterns", type: "STRING", nullable: false },
 ];
 
+/** the columns of the parties table, in the order of section 8 of the file format; the table has no Parquet file in this release */
+export const PARTY_COLUMNS: ParquetColumn[] = [
+  { name: "caseId", type: "INT32", nullable: false },
+  { name: "key", type: "STRING", nullable: false },
+  { name: "group", type: "STRING", nullable: false },
+  { name: "pattern", type: "STRING", nullable: false },
+  { name: "part", type: "STRING", nullable: false },
+  { name: "end", type: "STRING", nullable: false },
+  { name: "kind", type: "STRING", nullable: false },
+  { name: "label", type: "STRING", nullable: false },
+  { name: "account", type: "INT32", nullable: true },
+  { name: "chain", type: "STRING", nullable: true },
+  { name: "address", type: "STRING", nullable: true },
+];
+
+/** the columns of the case legs table, in the order of section 8 of the file format; the table has no Parquet file in this release */
+export const CASE_LEG_COLUMNS: ParquetColumn[] = [
+  { name: "caseId", type: "INT32", nullable: false },
+  { name: "seq", type: "INT32", nullable: false },
+  { name: "pattern", type: "STRING", nullable: false },
+  { name: "part", type: "STRING", nullable: false },
+  { name: "step", type: "STRING", nullable: false },
+  { name: "day", type: "INT32", nullable: false },
+  { name: "minute", type: "INT32", nullable: false },
+  { name: "from", type: "STRING", nullable: false },
+  { name: "to", type: "STRING", nullable: false },
+  { name: "via", type: "STRING", nullable: false },
+  { name: "asset", type: "STRING", nullable: false },
+  { name: "chain", type: "STRING", nullable: true },
+  { name: "planned", type: "DOUBLE", nullable: false },
+  { name: "amount", type: "DOUBLE", nullable: false },
+  { name: "seenBy", type: "STRING", nullable: false },
+  { name: "tx", type: "INT32", nullable: true },
+  { name: "say", type: "STRING", nullable: false },
+];
+
 type Cell = number | string | boolean | null;
+
+/** one party row as the CSV file writes it */
+export function partyCell(p: Party, name: string): Cell {
+  return ((p as unknown as Record<string, unknown>)[name] ?? null) as Cell;
+}
+
+/** one case leg row as the CSV file writes it */
+export function caseLegCell(l: CaseLeg, name: string): Cell {
+  return ((l as unknown as Record<string, unknown>)[name] ?? null) as Cell;
+}
 
 /** one account row as the CSV file writes it */
 export function accountCell(a: Account, name: string): Cell {

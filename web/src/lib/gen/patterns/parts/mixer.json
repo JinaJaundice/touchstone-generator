@@ -1,0 +1,140 @@
+{
+  "schema": "touchstone-part/1",
+  "id": "mixer",
+  "kind": "hiding",
+  "status": "tested",
+  "title": "A mixing service",
+  "short": "Mixer",
+  "summary": "The funds go into a service that pools coins from many senders and pays the same value, less a fee, to a new address.",
+  "references": [
+    {
+      "id": "S57",
+      "pages": "29"
+    }
+  ],
+  "routes": [
+    {
+      "from": "BTC@bitcoin",
+      "to": "same"
+    },
+    {
+      "from": "ETH@ethereum",
+      "to": "same"
+    }
+  ],
+  "entry": "holder",
+  "exit": "fresh",
+  "hides": {
+    "chance": 0.8,
+    "basis": {
+      "kind": "assumed",
+      "note": "No source read for this part publishes how often a screening tool follows funds through a mixer. The value means that the trail is lost in 4 cases in 5."
+    }
+  },
+  "parties": [
+    {
+      "id": "holder",
+      "kind": "wallet",
+      "label": "the wallet that holds the funds",
+      "reuse": "case"
+    },
+    {
+      "id": "service",
+      "kind": "mixer",
+      "label": "a mixing service",
+      "reuse": "case"
+    },
+    {
+      "id": "fresh",
+      "kind": "wallet",
+      "label": "a new wallet that receives the mixed funds",
+      "reuse": "case"
+    }
+  ],
+  "steps": [
+    {
+      "id": "deposit",
+      "kind": "move",
+      "say": "The funds go to the mixing service in a few deposits.",
+      "from": "holder",
+      "to": "service",
+      "via": "chain",
+      "asset": "in",
+      "amount": {
+        "of": "held",
+        "share": [
+          1,
+          1
+        ]
+      },
+      "split": "uneven",
+      "times": [
+        1,
+        4
+      ],
+      "start": {
+        "after": "entry",
+        "minutes": [
+          10,
+          360
+        ]
+      },
+      "between": {
+        "minutes": [
+          5,
+          120
+        ]
+      },
+      "need": "required",
+      "varies": "rotating",
+      "basis": {
+        "kind": "reported",
+        "ref": "S57",
+        "pages": "29",
+        "note": "The report says that the service pools coins and returns the equivalent to new addresses. It gives no figures. The count of 1 to 4 deposits, the waits and the uneven split are assumed."
+      }
+    },
+    {
+      "id": "withdraw",
+      "kind": "move",
+      "say": "The service pays the funds out to a new wallet, less its fee.",
+      "from": "service",
+      "to": "fresh",
+      "via": "chain",
+      "asset": "out",
+      "amount": {
+        "of": "held",
+        "share": [
+          0.97,
+          0.99
+        ]
+      },
+      "split": "uneven",
+      "times": [
+        1,
+        4
+      ],
+      "start": {
+        "after": "deposit",
+        "hours": [
+          2,
+          48
+        ]
+      },
+      "between": {
+        "minutes": [
+          10,
+          180
+        ]
+      },
+      "need": "required",
+      "varies": "ephemeral",
+      "basis": {
+        "kind": "reported",
+        "ref": "S57",
+        "pages": "29",
+        "note": "The report says that the service keeps a fee. The fee of 1% to 3%, the wait of 2 to 48 hours and the count of 1 to 4 payments are assumed."
+      }
+    }
+  ]
+}

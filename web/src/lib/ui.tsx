@@ -250,7 +250,7 @@ export function DataStrip({ empty = "Choose a bank type below and make the data"
         </div>
       ) : ds ? (
         <>
-          <div className="strip-name">{ds.config.name}<small>The data set · seed number {ds.config.seed} · period {ds.config.period ?? 1}{s.fingerprint ? ` · fingerprint ${s.fingerprint}` : ""}</small></div>
+          <div className="strip-name">{ds.config.name}<small>The data set · seed number {ds.config.seed} · period {ds.config.period ?? 1}{s.fingerprint ? ` · fingerprint ${s.fingerprint}` : ""}{ds.library ? ` · library ${ds.library.version}` : ""}</small></div>
           <div className="strip-figs" tabIndex={0} aria-label="The data set in figures">
             <div><b>{fmtInt(ds.summary.accounts)}</b><span>accounts</span></div>
             <div><b>{ds.summary.days}</b><span>days</span></div>

@@ -34,6 +34,9 @@
     { "id": "S49", "title": "SAML-D (Oztas and others, 2023)" },
     { "id": "S52", "title": "Santander UK, \"Cryptocurrency\": the limit on payments to crypto exchanges" },
     { "id": "S54", "title": "ONS, Intergenerational transfers: the distribution of inheritances, gifts and loans, Great Britain: 2014 to 2016" },
-    { "id": "S56", "title": "ONS, Employee earnings in the UK: 2024 (Annual Survey of Hours and Earnings), Table 6 by age group" }
+    { "id": "S56", "title": "ONS, Employee earnings in the UK: 2024 (Annual Survey of Hours and Earnings), Table 6 by age group" },
+    { "id": "S57", "title": "Alexander Browder, Confronting the Illicit-Finance Hydra in Crypto Markets, Henry Jackson Society, March 2026" },
+    { "id": "S58", "title": "Gadi Evron, Adversary Brains: Hypothesis-Based Logical Signatures for Threat Actor Detection with LLMs, arXiv 2610.35624v1, 26 October 2026" },
+    { "id": "S59", "title": "FATF, Targeted Report on Stablecoins and Unhosted Wallets: Peer-to-Peer Transactions, March 2026" }
   ]
 }

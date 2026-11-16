@@ -1,0 +1,34 @@
+{
+  "schema": "touchstone-pattern/1",
+  "id": "stolen-funds-through-a-peel-chain",
+  "status": "tested",
+  "title": "Stolen exchange funds peeled through new wallets and sold at the bank",
+  "short": "Stolen funds, peel chain",
+  "summary": "An attacker empties an exchange's wallets into a new address. One slice of the funds passes through a run of new wallets and is then sold through the bank's crypto service and sent on.",
+  "parts": {
+    "source": "exchange-hack",
+    "hiding": [
+      "peel-chain"
+    ],
+    "cashOut": "bank-crypto-sale"
+  },
+  "bankSees": "cash-out",
+  "per1k": 0.4,
+  "value": {
+    "log": [
+      2000,
+      60000
+    ],
+    "basis": {
+      "kind": "assumed",
+      "note": "A case follows one slice of the stolen funds. The slice is sized so that a personal customer could sell it through a bank's crypto service, and its range is assumed."
+    }
+  },
+  "references": [
+    {
+      "id": "S57",
+      "pages": "19, 29",
+      "note": "The report describes one theft from an exchange whose proceeds investigators followed through peel chains and accounts at several exchanges."
+    }
+  ]
+}

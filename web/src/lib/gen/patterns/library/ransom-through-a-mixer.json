@@ -1,0 +1,24 @@
+{
+  "schema": "touchstone-pattern/1",
+  "id": "ransom-through-a-mixer",
+  "status": "tested",
+  "title": "A ransom paid in bitcoin and moved through a mixer",
+  "short": "Ransom, mixer",
+  "summary": "A firm pays a ransom in bitcoin. The attacker peels the funds through new wallets and a mixing service, sells them to an over-the-counter desk and is paid into a bank account.",
+  "parts": {
+    "source": "ransom-payment",
+    "hiding": [
+      "peel-chain",
+      "mixer"
+    ],
+    "cashOut": "otc-desk-payout"
+  },
+  "bankSees": "source",
+  "per1k": 0.4,
+  "references": [
+    {
+      "id": "S57",
+      "pages": "20 to 22, 29, 34"
+    }
+  ]
+}
