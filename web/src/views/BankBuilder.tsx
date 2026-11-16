@@ -248,8 +248,8 @@ export function BankBuilder() {
           <div className="exact-group">
             <h4>Difficulty: AMLGentex's tuning settings, one by one</h4>
             <div className="settings-grid">
-              <Field label="Laundering amounts overlap ordinary amounts" value={fmtPct(cfg.amountOverlap)} hint="100% is the difficult setting: the two distributions match. At 0% laundering legs run four times larger."><Slider value={cfg.amountOverlap} min={0} max={1} step={0.05} onChange={(v) => actions.setConfig({ amountOverlap: v })} /></Field>
-              <Field label="Burstiness" value={fmtNum(cfg.burstinessBias, 1)} hint="Negative spreads a pattern's legs across its period; positive piles them into a few days."><Slider value={cfg.burstinessBias} min={-4} max={4} step={0.5} onChange={(v) => actions.setConfig({ burstinessBias: v })} /></Field>
+              <Field label="Laundering amounts overlap ordinary amounts" value={fmtPct(cfg.amountOverlap)} hint="100% is the difficult setting, where the two distributions match. At 0%, laundering payments run four times larger."><Slider value={cfg.amountOverlap} min={0} max={1} step={0.05} onChange={(v) => actions.setConfig({ amountOverlap: v })} /></Field>
+              <Field label="Burstiness" value={fmtNum(cfg.burstinessBias, 1)} hint="Negative spreads a pattern's payments across its period. Positive piles them into a few days."><Slider value={cfg.burstinessBias} min={-4} max={4} step={0.5} onChange={(v) => actions.setConfig({ burstinessBias: v })} /></Field>
               <Field label="Pattern duration, mean days" value={cfg.durationMean}><Slider value={cfg.durationMean} min={4} max={70} step={1} onChange={(v) => actions.setConfig({ durationMean: v })} /></Field>
               <Field label="Fee skimmed at each layer" value={fmtPct(cfg.marginRatio)}><Slider value={cfg.marginRatio} min={0} max={0.25} step={0.01} onChange={(v) => actions.setConfig({ marginRatio: v })} /></Field>
               <Field label="Accounts in more than one pattern" value={fmtPct(cfg.multiPatternShare)}><Slider value={cfg.multiPatternShare} min={0} max={0.7} step={0.05} onChange={(v) => actions.setConfig({ multiPatternShare: v })} /></Field>
@@ -262,7 +262,7 @@ export function BankBuilder() {
               </div>
               <div className="field">
                 <div className="field-row"><span className="field-label">Laundering rides on existing relationships</span><Toggle on={!!cfg.ridesExistingLinks} onChange={(v) => actions.setConfig({ ridesExistingLinks: v })} label="laundering rides on existing relationships" /></div>
-                <div className="field-hint">On, the layered patterns run between accounts that already pay one another. Each leg is sized like the payer's usual transfers, stays in the country, and no placement is recorded. The setting for testing a model that reads who pays whom.</div>
+                <div className="field-hint">On, the layered patterns run between accounts that already pay one another. Each payment is sized like the payer's usual transfers, stays in the country, and no placement is recorded. The setting for testing a model that reads who pays whom.</div>
               </div>
             </div>
           </div>
