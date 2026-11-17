@@ -1,0 +1,157 @@
+{
+  "schema": "touchstone-part/1",
+  "id": "high-risk-exchange-pass",
+  "kind": "hiding",
+  "status": "tested",
+  "title": "Funds traded at an exchange with weak customer checks",
+  "short": "Weak-check exchange",
+  "summary": "The funds go to an exchange with weak customer checks and are traded 2 to 10 times over 1 to 3 days. They come out to a new wallet in a stablecoin or in bitcoin.",
+  "references": [
+    {
+      "id": "S57",
+      "pages": "33, 34"
+    }
+  ],
+  "routes": [
+    {
+      "from": "any",
+      "to": "USDT@tron"
+    },
+    {
+      "from": "any",
+      "to": "BTC@bitcoin"
+    }
+  ],
+  "entry": "holder",
+  "exit": "fresh",
+  "hides": {
+    "chance": 0.6,
+    "basis": {
+      "kind": "assumed",
+      "note": "No source read for this design publishes how often a screening tool loses the link at this method. The value is an assumption and means that the trail is lost in 60 cases in 100."
+    }
+  },
+  "parties": [
+    {
+      "id": "holder",
+      "kind": "wallet",
+      "label": "the wallet that holds the funds",
+      "reuse": "case"
+    },
+    {
+      "id": "venue",
+      "kind": "exchange",
+      "label": "an exchange with weak customer checks",
+      "reuse": "case"
+    },
+    {
+      "id": "fresh",
+      "kind": "wallet",
+      "label": "a new wallet that receives the funds",
+      "reuse": "case"
+    }
+  ],
+  "steps": [
+    {
+      "id": "deposit",
+      "kind": "move",
+      "say": "The wallet sends the funds to the exchange.",
+      "from": "holder",
+      "to": "venue",
+      "via": "chain",
+      "asset": "in",
+      "amount": {
+        "of": "held",
+        "share": [
+          1,
+          1
+        ]
+      },
+      "start": {
+        "after": "entry",
+        "minutes": [
+          10,
+          120
+        ]
+      },
+      "need": "required",
+      "varies": "rotating",
+      "basis": {
+        "kind": "reported",
+        "ref": "S57",
+        "pages": "33, 34",
+        "note": "The report describes funds run through some trading at exchanges with weak checks. The wait is assumed."
+      }
+    },
+    {
+      "id": "trade",
+      "kind": "move",
+      "say": "The funds are traded several times at the exchange so that they look normal.",
+      "from": "venue",
+      "to": "venue",
+      "via": "off-record",
+      "asset": "out",
+      "amount": {
+        "of": "held",
+        "share": [
+          1,
+          1
+        ]
+      },
+      "times": [
+        2,
+        10
+      ],
+      "start": {
+        "after": "deposit",
+        "hours": [
+          1,
+          6
+        ]
+      },
+      "between": {
+        "hours": [
+          1,
+          8
+        ]
+      },
+      "need": "required",
+      "varies": "rotating",
+      "basis": {
+        "kind": "reported",
+        "ref": "S57",
+        "pages": "33, 34",
+        "note": "The report says that the trading makes the funds look normal. The count of 2 to 10 trades over 1 to 3 days is assumed."
+      }
+    },
+    {
+      "id": "withdraw",
+      "kind": "move",
+      "say": "The exchange sends the funds to a new wallet in a stablecoin or in bitcoin.",
+      "from": "venue",
+      "to": "fresh",
+      "via": "chain",
+      "asset": "out",
+      "amount": {
+        "of": "held",
+        "share": [
+          1,
+          1
+        ]
+      },
+      "start": {
+        "after": "trade",
+        "hours": [
+          1,
+          12
+        ]
+      },
+      "need": "required",
+      "varies": "ephemeral",
+      "basis": {
+        "kind": "assumed",
+        "note": "No source read for this part describes a withdrawal from such an exchange to a new wallet. The report describes a transfer to bank accounts. The asset, the wait and the absence of a fee are assumed."
+      }
+    }
+  ]
+}

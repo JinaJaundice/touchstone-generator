@@ -1,0 +1,137 @@
+{
+  "schema": "touchstone-part/1",
+  "id": "gambling-site",
+  "kind": "hiding",
+  "status": "tested",
+  "title": "Funds deposited at a gambling site and withdrawn elsewhere",
+  "short": "Gambling site",
+  "summary": "The funds go to a gambling site in 1 to 3 deposits and move on the site's own ledger for 1 to 5 days. They then come out to a different wallet.",
+  "references": [
+    {
+      "id": "S57",
+      "pages": "29, 30"
+    }
+  ],
+  "routes": [
+    {
+      "from": "BTC@bitcoin",
+      "to": "same"
+    },
+    {
+      "from": "ETH@ethereum",
+      "to": "same"
+    },
+    {
+      "from": "USDT@ethereum",
+      "to": "same"
+    },
+    {
+      "from": "USDT@tron",
+      "to": "same"
+    }
+  ],
+  "entry": "holder",
+  "exit": "payoutWallet",
+  "hides": {
+    "chance": 0.5,
+    "basis": {
+      "kind": "assumed",
+      "note": "No source read for this design publishes how often a screening tool loses the link at this method. The value is an assumption and means that the trail is lost in 50 cases in 100."
+    }
+  },
+  "parties": [
+    {
+      "id": "holder",
+      "kind": "wallet",
+      "label": "the wallet that holds the funds",
+      "reuse": "case"
+    },
+    {
+      "id": "site",
+      "kind": "gambling-site",
+      "label": "a gambling site",
+      "reuse": "case"
+    },
+    {
+      "id": "payoutWallet",
+      "kind": "wallet",
+      "label": "a different wallet that receives the withdrawal",
+      "reuse": "case"
+    }
+  ],
+  "steps": [
+    {
+      "id": "deposit",
+      "kind": "move",
+      "say": "The funds go to the gambling site in a few deposits.",
+      "from": "holder",
+      "to": "site",
+      "via": "chain",
+      "asset": "in",
+      "amount": {
+        "of": "held",
+        "share": [
+          1,
+          1
+        ]
+      },
+      "split": "uneven",
+      "times": [
+        1,
+        3
+      ],
+      "start": {
+        "after": "entry",
+        "minutes": [
+          10,
+          360
+        ]
+      },
+      "between": {
+        "minutes": [
+          5,
+          240
+        ]
+      },
+      "need": "required",
+      "varies": "rotating",
+      "basis": {
+        "kind": "reported",
+        "ref": "S57",
+        "pages": "29, 30",
+        "note": "The report describes deposits to a gambling site. It gives no figures. The count of 1 to 3 deposits, the waits and the uneven split are assumed."
+      }
+    },
+    {
+      "id": "withdraw",
+      "kind": "move",
+      "say": "After 1 to 5 days on the site's own ledger the funds are withdrawn to a different wallet.",
+      "from": "site",
+      "to": "payoutWallet",
+      "via": "chain",
+      "asset": "in",
+      "amount": {
+        "of": "held",
+        "share": [
+          1,
+          1
+        ]
+      },
+      "start": {
+        "after": "deposit",
+        "days": [
+          1,
+          5
+        ]
+      },
+      "need": "required",
+      "varies": "ephemeral",
+      "basis": {
+        "kind": "reported",
+        "ref": "S57",
+        "pages": "29, 30",
+        "note": "The report describes withdrawal to a different wallet with little trail on the chain between deposit and withdrawal. The bets and moves on the ledger are not modelled as legs, and the wait of 1 to 5 days is assumed."
+      }
+    }
+  ]
+}

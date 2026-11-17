@@ -1,4 +1,4 @@
-/* The validator of the part and pattern files: the 10 checks of the specification (docs/PATTERN_FORMAT.md). A typed copy
+/* The validator of the part and pattern files: the 13 checks of the specification (docs/PATTERN_FORMAT.md). A typed copy
    of the reference validator. Each error reads "<file id>: <field>: <message>", so a failing file is named with the field.
    Check 6 runs only where the set of source ids is given. Check 10 calls the expander with every count at its upper end
    (settings.atMax). A value read from a file enters as unknown, and the validator returns it as a Part or a Pattern. */
@@ -6,9 +6,9 @@
 import { drawPlan } from "./expand";
 import {
   ASSETS, CHAINS, CLASSES, COUNTRIES, FAMILIES, LEG_ROLES, METHODS, PAIRS, PARTY_KINDS, REASONS, ROLES, SEGMENTS, STATUSES, VIAS,
-  isRail, resolveAssets,
+  chainPayments, isRail, partIdOf, partyChains, resolveAssets, usesOf,
 } from "./types";
-import type { Checked, Part, PartLookup, Pattern } from "./types";
+import type { Chain, Checked, Part, PartLookup, Pattern } from "./types";
 
 /** A value that a file holds and that no check has yet looked at. The validator reads each field through a check before it relies on it. */
 type Loose = any;
@@ -256,7 +256,7 @@ function step(c: Ctx, p: Loose, s: Loose, i: number, byId: Record<string, Loose>
 // ---------- pattern ----------
 const getter = (m: PartLookup) => (id: string): Part | undefined => (m instanceof Map ? m.get(id) : (m as Readonly<Record<string, Part>>)?.[id]);
 
-/** Checks a pattern file against checks 1 to 10 and returns it as a Pattern, or the list of errors. */
+/** Checks a pattern file against checks 1 to 13 and returns it as a Pattern, or the list of errors. */
 export function validatePattern(json: unknown, partsById: PartLookup, known?: ReadonlySet<string>): Checked<Pattern> {
   const [errs, e] = mk(json), c: Ctx = { e, known }, get = getter(partsById);
   if (!fields(e, json, "(file)", ["schema", "id", "title", "short", "summary", "status", "parts", "bankSees", "per1k", "references"], ["value"])) return done(errs);
@@ -275,7 +275,8 @@ export function validatePattern(json: unknown, partsById: PartLookup, known?: Re
   const s = look(p.source, "parts.source", "source"), co = look(p.cashOut, "parts.cashOut", "cash-out");
   const hs = p.hiding.map((id: string, i: number) => look(id, `parts.hiding[${i}]`, "hiding"));
   if (errs.length || !s || !co || hs.includes(undefined)) return done(errs);
-  if (!resolveAssets(j, partsById)) e("parts", "the assets do not join (check 8)");
+  const joined = !!resolveAssets(j, partsById);
+  if (!joined) e("parts", "the assets do not join (check 8)");
   const cust = (x: Part): boolean => x.parties.some((q) => q.kind === "customer");
   if ("value" in j) { // section 3: the slice of the proceeds that one case of the pattern follows
     const v = j.value;
@@ -290,6 +291,31 @@ export function validatePattern(json: unknown, partsById: PartLookup, known?: Re
   if (cust(s) && cust(co) && typeof j.short === "string" && j.short.length > 15) e("short", "has more than 15 characters, and both ends have customers (section 3)");
   if (["source", "both"].includes(j.bankSees) && !cust(s)) e("bankSees", "the source end has no customer party (check 9)");
   if (["cash-out", "both"].includes(j.bankSees) && !cust(co)) e("bankSees", "the cash-out end has no customer party (check 9)");
+  if (joined) { // checks 11 to 13: the chains on which a payment can name a party
+    const pat = j as Pattern, chains = partyChains(pat, partsById), pays = chainPayments(pat, partsById);
+    const list = (cs: Iterable<Chain>): string => [...cs].join(" and ");
+    for (const use of usesOf(pat)) // check 11
+      for (const q of get(partIdOf(use))?.parties ?? []) {
+        const cs = chains.get(`${use}.${q.id}`);
+        if (q.kind === "wallet" && cs && cs.size > 1) e("parts", `the use ${use} has the party ${q.id}, a wallet that payments on ${list(cs)} can name (check 11)`);
+      }
+    const other = new Map<string, { use: string; id: string; own: Chain; cs: Set<Chain> }>();
+    for (const pay of pays) // check 12
+      for (const { use, party } of pay.parties) {
+        if (!party.chain || party.chain === pay.chain) continue;
+        const k = `${use}.${party.id}`, o = other.get(k) ?? { use, id: party.id, own: party.chain, cs: new Set<Chain>() };
+        other.set(k, o); o.cs.add(pay.chain);
+      }
+    for (const o of other.values()) e("parts", `the use ${o.use} has the party ${o.id}, whose file names the chain ${o.own}, and a payment on ${list(o.cs)} can name it (check 12)`);
+    const told = new Set<string>();
+    for (const pay of pays) // check 13
+      if (pay.bankCrypto) for (const { use, party } of pay.parties) {
+        const cs = chains.get(`${use}.${party.id}`), k = `${pay.use}.${pay.step}.${use}.${party.id}`;
+        if (party.kind === "customer" || !cs || cs.size < 2 || told.has(k)) continue;
+        told.add(k);
+        e("parts", `the step ${pay.step} of the use ${pay.use} goes through the bank's crypto service and names the party ${party.id}, which payments on ${list(cs)} can name (check 13)`);
+      }
+  }
   if (!errs.length) { // check 10
     try {
       const n = drawPlan(j as Pattern, partsById, { size: 1, speed: 1, bankSees: j.bankSees, atMax: true }, () => 0.5).legs.length;

@@ -1,0 +1,85 @@
+{
+  "schema": "touchstone-part/1",
+  "id": "stablecoin-hold",
+  "kind": "hiding",
+  "status": "tested",
+  "title": "Funds held in a dollar stablecoin before they move on",
+  "short": "Stablecoin hold",
+  "summary": "The funds wait in a dollar stablecoin for 2 to 30 days and then move to a new wallet. The wait avoids price changes during laundering.",
+  "references": [
+    {
+      "id": "S57",
+      "pages": "32"
+    }
+  ],
+  "routes": [
+    {
+      "from": "USDT@ethereum",
+      "to": "same"
+    },
+    {
+      "from": "USDT@tron",
+      "to": "same"
+    },
+    {
+      "from": "USDC@ethereum",
+      "to": "same"
+    }
+  ],
+  "entry": "holder",
+  "exit": "fresh",
+  "hides": {
+    "chance": 0,
+    "basis": {
+      "kind": "assumed",
+      "note": "No source read for this design publishes how often a screening tool loses the link at this method. The value is an assumption and means that the trail is lost in 0 cases in 100."
+    }
+  },
+  "parties": [
+    {
+      "id": "holder",
+      "kind": "wallet",
+      "label": "the wallet that holds the stablecoin",
+      "reuse": "case"
+    },
+    {
+      "id": "fresh",
+      "kind": "wallet",
+      "label": "a new wallet that receives the funds",
+      "reuse": "case"
+    }
+  ],
+  "steps": [
+    {
+      "id": "move",
+      "kind": "move",
+      "say": "After a wait the funds move to a new wallet.",
+      "from": "holder",
+      "to": "fresh",
+      "via": "chain",
+      "asset": "in",
+      "amount": {
+        "of": "held",
+        "share": [
+          1,
+          1
+        ]
+      },
+      "start": {
+        "after": "entry",
+        "days": [
+          2,
+          30
+        ]
+      },
+      "need": "required",
+      "varies": "rotating",
+      "basis": {
+        "kind": "reported",
+        "ref": "S57",
+        "pages": "32",
+        "note": "The report says that proceeds are held in dollar tokens to avoid price changes during laundering. The wait of 2 to 30 days is assumed."
+      }
+    }
+  ]
+}

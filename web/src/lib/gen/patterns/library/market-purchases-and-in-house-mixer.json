@@ -1,0 +1,23 @@
+{
+  "schema": "touchstone-pattern/1",
+  "id": "market-purchases-and-in-house-mixer",
+  "status": "tested",
+  "title": "Darknet market proceeds mixed by a service and cashed out by a broker",
+  "short": "Market purchases, mixer",
+  "summary": "Customers buy from a darknet market, which pays the vendor less a commission. The vendor's proceeds pass through a mixer and are handed over as cash by a broker.",
+  "parts": {
+    "source": "darknet-market-purchases",
+    "hiding": [
+      "mixer"
+    ],
+    "cashOut": "cash-by-courier"
+  },
+  "bankSees": "source",
+  "per1k": 0.4,
+  "references": [
+    {
+      "id": "S57",
+      "pages": "12, 13"
+    }
+  ]
+}

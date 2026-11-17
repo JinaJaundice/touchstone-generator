@@ -1,0 +1,171 @@
+{
+  "schema": "touchstone-part/1",
+  "id": "mule-accounts-chain",
+  "kind": "cash-out",
+  "status": "tested",
+  "family": "mule",
+  "title": "Paid out through a chain of mule accounts and cashed out",
+  "short": "Mule account chain",
+  "summary": "An exchange pays the first mule account, which passes the money to the next. Each later account cashes part out by card, cash or a payment abroad and passes the rest on.",
+  "references": [
+    {
+      "id": "S60"
+    },
+    {
+      "id": "S57",
+      "pages": "25"
+    }
+  ],
+  "takes": "any",
+  "entry": "exchange",
+  "parties": [
+    {
+      "id": "exchange",
+      "kind": "exchange",
+      "label": "an exchange that pays the first mule account",
+      "reuse": "case"
+    },
+    {
+      "id": "first",
+      "kind": "customer",
+      "role": "mule",
+      "label": "the first mule account",
+      "count": [
+        1,
+        1
+      ],
+      "pick": {
+        "segments": [
+          "retail"
+        ],
+        "openedWithinDays": 365
+      }
+    },
+    {
+      "id": "relay",
+      "kind": "customer",
+      "role": "mule",
+      "label": "a later mule account in the chain",
+      "count": [
+        1,
+        4
+      ],
+      "pick": {
+        "segments": [
+          "retail"
+        ],
+        "hasCard": true
+      }
+    },
+    {
+      "id": "away",
+      "kind": "outside-account",
+      "label": "a retailer, a cash machine or an account abroad",
+      "reuse": "leg",
+      "country": "corridor"
+    },
+    {
+      "id": "onward",
+      "kind": "outside-account",
+      "label": "an account at another bank",
+      "reuse": "case"
+    }
+  ],
+  "steps": [
+    {
+      "id": "receive",
+      "kind": "move",
+      "say": "The exchange pays the first mule account in 1 to 3 payments.",
+      "from": "exchange",
+      "to": "first",
+      "via": "fps",
+      "asset": "GBP",
+      "amount": {
+        "of": "held",
+        "share": [
+          1,
+          1
+        ]
+      },
+      "split": "uneven",
+      "times": [
+        1,
+        3
+      ],
+      "start": {
+        "after": "entry",
+        "hours": [
+          1,
+          24
+        ]
+      },
+      "between": {
+        "hours": [
+          1,
+          12
+        ]
+      },
+      "need": "required",
+      "varies": "rotating",
+      "legRole": "mule-receipt",
+      "basis": {
+        "kind": "reported",
+        "ref": "S60",
+        "note": "The FCA findings describe fraud proceeds that move through chains of mule accounts. The exchange that pays the first account, the counts and the waits are assumed."
+      }
+    },
+    {
+      "id": "pass",
+      "kind": "chain",
+      "say": "Each account passes the money to the next account, and the last sends the rest to another bank.",
+      "from": "first",
+      "to": "onward",
+      "via": "fps",
+      "asset": "GBP",
+      "through": {
+        "party": "relay"
+      },
+      "amount": {
+        "of": "held",
+        "share": [
+          0.85,
+          0.97
+        ]
+      },
+      "peel": {
+        "to": "away",
+        "share": [
+          0.25,
+          0.6
+        ],
+        "say": "Each later account cashes part of the money out by card, cash or a payment abroad.",
+        "via": [
+          "card",
+          "cash-out",
+          "swift"
+        ]
+      },
+      "start": {
+        "after": "receive",
+        "hours": [
+          0,
+          24
+        ]
+      },
+      "between": {
+        "hours": [
+          0,
+          24
+        ]
+      },
+      "need": "required",
+      "varies": "rotating",
+      "legRole": "mule-forward",
+      "basis": {
+        "kind": "reported",
+        "ref": "S60",
+        "note": "The FCA findings say that cashing out is mainly concentrated between the second and the fifth mule account, with the highest concentration at the second. They also say that card payments are the most common method. The share of 25% to 60% that leaves at each later account, the share of 85% to 97% that the first account passes on and the waits are assumed. Each later account makes one leaving payment and passes on all the rest."
+      }
+    }
+  ]
+}

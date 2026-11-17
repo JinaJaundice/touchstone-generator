@@ -1,0 +1,161 @@
+{
+  "schema": "touchstone-part/1",
+  "id": "payment-platform-payout",
+  "kind": "cash-out",
+  "status": "tested",
+  "family": "aml",
+  "title": "Paid out by a payment platform in medium payments",
+  "short": "Platform pay-out",
+  "summary": "The funds wait in an account at a payment platform. The platform pays the customer's bank account in several medium payments, and the customer spends or sends on most of the money.",
+  "references": [
+    {
+      "id": "S57",
+      "pages": "33, 35"
+    }
+  ],
+  "takes": "any",
+  "entry": "platform",
+  "parties": [
+    {
+      "id": "platform",
+      "kind": "payment-platform",
+      "label": "a payment platform that holds the funds",
+      "reuse": "case"
+    },
+    {
+      "id": "holder",
+      "kind": "customer",
+      "role": "launderer",
+      "label": "the account holder at the bank",
+      "count": [
+        1,
+        1
+      ],
+      "pick": {
+        "segments": [
+          "retail"
+        ],
+        "hasCard": true
+      }
+    },
+    {
+      "id": "onward",
+      "kind": "outside-account",
+      "label": "a merchant or an account at another bank",
+      "reuse": "case",
+      "country": "ordinary"
+    }
+  ],
+  "steps": [
+    {
+      "id": "wait",
+      "kind": "move",
+      "say": "The funds wait in the account at the platform.",
+      "from": "platform",
+      "to": "platform",
+      "via": "off-record",
+      "asset": "in",
+      "amount": {
+        "of": "held",
+        "share": [
+          1,
+          1
+        ]
+      },
+      "start": {
+        "after": "entry",
+        "hours": [
+          1,
+          24
+        ]
+      },
+      "need": "required",
+      "varies": "rotating",
+      "basis": {
+        "kind": "reported",
+        "ref": "S57",
+        "pages": "33, 35",
+        "note": "The report says that platforms hold the funds in balances like e-money. The wait is assumed."
+      }
+    },
+    {
+      "id": "payout",
+      "kind": "move",
+      "say": "The platform pays the account at the bank in 3 to 10 medium payments.",
+      "from": "platform",
+      "to": "holder",
+      "via": "fps",
+      "asset": "GBP",
+      "amount": {
+        "of": "held",
+        "share": [
+          1,
+          1
+        ]
+      },
+      "split": "uneven",
+      "times": [
+        3,
+        10
+      ],
+      "start": {
+        "after": "wait",
+        "days": [
+          1,
+          3
+        ]
+      },
+      "between": {
+        "days": [
+          0,
+          2
+        ]
+      },
+      "need": "required",
+      "varies": "rotating",
+      "legRole": "integration",
+      "basis": {
+        "kind": "reported",
+        "ref": "S57",
+        "pages": "35",
+        "note": "The report says that platforms cash out by bank wire, prepaid cards, vouchers or merchant payments. The counts, the size of the payments and the waits are assumed."
+      }
+    },
+    {
+      "id": "sendOn",
+      "kind": "move",
+      "say": "The customer spends or sends on most of each payment.",
+      "from": "holder",
+      "to": "onward",
+      "via": [
+        "fps",
+        "card"
+      ],
+      "asset": "GBP",
+      "amount": {
+        "of": "leg",
+        "share": [
+          0.5,
+          0.9
+        ]
+      },
+      "start": {
+        "after": "payout",
+        "per": "leg",
+        "days": [
+          0,
+          2
+        ]
+      },
+      "need": "required",
+      "varies": "rotating",
+      "legRole": "layering",
+      "basis": {
+        "kind": "reported",
+        "ref": "S57",
+        "pages": "35",
+        "note": "The report says that payments from platforms look like ordinary commercial activity. What the customer does next, the share of 50% to 90% and the wait are assumed."
+      }
+    }
+  ]
+}

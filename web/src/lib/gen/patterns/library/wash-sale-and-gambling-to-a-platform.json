@@ -1,0 +1,36 @@
+{
+  "schema": "touchstone-pattern/1",
+  "id": "wash-sale-and-gambling-to-a-platform",
+  "status": "tested",
+  "title": "Stolen funds cleaned by a wash sale and gambling and paid out by a platform",
+  "short": "Stolen funds, wash sale",
+  "summary": "An attacker empties an exchange. The funds pass through a wash sale, a token swap and a gambling site, and a payment platform pays them into a bank account.",
+  "parts": {
+    "source": "exchange-hack",
+    "hiding": [
+      "nft-wash-sale",
+      "dex-swap",
+      "gambling-site"
+    ],
+    "cashOut": "payment-platform-payout"
+  },
+  "bankSees": "cash-out",
+  "per1k": 0.4,
+  "value": {
+    "log": [
+      3000,
+      30000
+    ],
+    "basis": {
+      "kind": "assumed",
+      "note": "A case follows one slice of the stolen funds. The slice is sized so that a payment platform could pay it to a personal account in medium payments, and its range is assumed."
+    }
+  },
+  "references": [
+    {
+      "id": "S57",
+      "pages": "29 to 31, 35",
+      "note": "The report describes each method separately. The library combines them as an example."
+    }
+  ]
+}

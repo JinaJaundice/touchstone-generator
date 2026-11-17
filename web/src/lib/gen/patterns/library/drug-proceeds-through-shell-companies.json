@@ -1,0 +1,35 @@
+{
+  "schema": "touchstone-pattern/1",
+  "id": "drug-proceeds-through-shell-companies",
+  "status": "tested",
+  "title": "Drug proceeds held in a stablecoin and cashed out through company accounts",
+  "short": "Drug proceeds, shell firms",
+  "summary": "A broker sends drug proceeds in a stablecoin to the launderer, who holds them and then trades them at an exchange with weak checks. Shell companies take them out as cash.",
+  "parts": {
+    "source": "drug-proceeds-in-crypto",
+    "hiding": [
+      "stablecoin-hold",
+      "high-risk-exchange-pass"
+    ],
+    "cashOut": "shell-company-cash-out"
+  },
+  "bankSees": "cash-out",
+  "per1k": 0.4,
+  "value": {
+    "log": [
+      30000,
+      250000
+    ],
+    "basis": {
+      "kind": "assumed",
+      "note": "A case follows one slice of the proceeds. The slice is sized so that the last company could take most of it out in cash at a counter over several days, and its range is assumed."
+    }
+  },
+  "references": [
+    {
+      "id": "S57",
+      "pages": "26 to 28, 32, 34",
+      "note": "The report describes each method separately. The library combines them as an example."
+    }
+  ]
+}

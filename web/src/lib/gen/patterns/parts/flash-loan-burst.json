@@ -1,0 +1,90 @@
+{
+  "schema": "touchstone-part/1",
+  "id": "flash-loan-burst",
+  "kind": "hiding",
+  "status": "tested",
+  "title": "A flash loan routed through many swaps in one transaction",
+  "short": "Flash loan burst",
+  "summary": "One transaction borrows a large sum, makes 5 to 15 swaps and repays the loan. Only the launderer's own funds remain in a new wallet.",
+  "references": [
+    {
+      "id": "S57",
+      "pages": "30, 31"
+    }
+  ],
+  "routes": [
+    {
+      "from": "ETH@ethereum",
+      "to": "same"
+    }
+  ],
+  "entry": "holder",
+  "exit": "fresh",
+  "hides": {
+    "chance": 0.4,
+    "basis": {
+      "kind": "assumed",
+      "note": "No source read for this design publishes how often a screening tool loses the link at this method. The value is an assumption and means that the trail is lost in 40 cases in 100."
+    }
+  },
+  "parties": [
+    {
+      "id": "holder",
+      "kind": "wallet",
+      "label": "the wallet that holds the funds",
+      "reuse": "case"
+    },
+    {
+      "id": "fresh",
+      "kind": "wallet",
+      "label": "a new wallet that keeps the net proceeds",
+      "reuse": "case"
+    }
+  ],
+  "steps": [
+    {
+      "id": "swaps",
+      "kind": "chain",
+      "say": "The funds pass through a run of swaps in one transaction, funded by a loan that is repaid.",
+      "from": "holder",
+      "to": "fresh",
+      "via": "chain",
+      "asset": "in",
+      "through": {
+        "new": "dex",
+        "count": [
+          5,
+          15
+        ]
+      },
+      "amount": {
+        "of": "held",
+        "share": [
+          1,
+          1
+        ]
+      },
+      "start": {
+        "after": "entry",
+        "minutes": [
+          10,
+          120
+        ]
+      },
+      "between": {
+        "minutes": [
+          0,
+          0
+        ]
+      },
+      "need": "required",
+      "varies": "ephemeral",
+      "basis": {
+        "kind": "reported",
+        "ref": "S57",
+        "pages": "30, 31",
+        "note": "The report says that a loan for one transaction is routed through many swaps and repaid, and that only the net proceeds remain. The borrowed sum is outside the funds of the case, so the legs show the launderer's own funds only. The count of 5 to 15 swaps is assumed, and the same minute for every swap follows from one transaction. The wait of 10 to 120 minutes before the transaction is assumed."
+      }
+    }
+  ]
+}

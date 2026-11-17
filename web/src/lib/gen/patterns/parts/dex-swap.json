@@ -1,0 +1,129 @@
+{
+  "schema": "touchstone-part/1",
+  "id": "dex-swap",
+  "kind": "hiding",
+  "status": "tested",
+  "title": "Tokens swapped through a decentralised exchange",
+  "short": "Token swap",
+  "summary": "The wallet swaps one token for another through a contract on the same chain, in 1 to 3 swaps. The tokens are easier to launder after the swap.",
+  "references": [
+    {
+      "id": "S57",
+      "pages": "30"
+    }
+  ],
+  "routes": [
+    {
+      "from": "ETH@ethereum",
+      "to": "USDT@ethereum"
+    },
+    {
+      "from": "USDT@ethereum",
+      "to": "ETH@ethereum"
+    }
+  ],
+  "entry": "holder",
+  "exit": "fresh",
+  "hides": {
+    "chance": 0.1,
+    "basis": {
+      "kind": "assumed",
+      "note": "No source read for this design publishes how often a screening tool loses the link at this method. The value is an assumption and means that the trail is lost in 10 cases in 100."
+    }
+  },
+  "parties": [
+    {
+      "id": "holder",
+      "kind": "wallet",
+      "label": "the wallet that holds the funds",
+      "reuse": "case"
+    },
+    {
+      "id": "contract",
+      "kind": "dex",
+      "label": "a decentralised exchange contract",
+      "reuse": "case"
+    },
+    {
+      "id": "fresh",
+      "kind": "wallet",
+      "label": "a new wallet that receives the other token",
+      "reuse": "case"
+    }
+  ],
+  "steps": [
+    {
+      "id": "swapIn",
+      "kind": "move",
+      "say": "The wallet sends the funds to the exchange contract in 1 to 3 swaps.",
+      "from": "holder",
+      "to": "contract",
+      "via": "chain",
+      "asset": "in",
+      "amount": {
+        "of": "held",
+        "share": [
+          1,
+          1
+        ]
+      },
+      "times": [
+        1,
+        3
+      ],
+      "start": {
+        "after": "entry",
+        "minutes": [
+          5,
+          60
+        ]
+      },
+      "between": {
+        "minutes": [
+          1,
+          10
+        ]
+      },
+      "need": "required",
+      "varies": "rotating",
+      "basis": {
+        "kind": "reported",
+        "ref": "S57",
+        "pages": "30",
+        "note": "The report describes a self-custody wallet that swaps tokens on a decentralised exchange. The counts and waits are assumed."
+      }
+    },
+    {
+      "id": "swapOut",
+      "kind": "move",
+      "say": "The contract pays the other token to a new wallet for each swap.",
+      "from": "contract",
+      "to": "fresh",
+      "via": "chain",
+      "asset": "out",
+      "amount": {
+        "of": "leg",
+        "share": [
+          1,
+          1
+        ]
+      },
+      "start": {
+        "after": "swapIn",
+        "per": "leg",
+        "minutes": [
+          1,
+          30
+        ]
+      },
+      "need": "required",
+      "varies": "ephemeral",
+      "basis": {
+        "kind": "reported",
+        "ref": "S57",
+        "pages": "30",
+        "note": "The report describes swaps into assets that are easier to launder. The wait of 1 to 30 minutes is assumed, and the swap fee is not modelled."
+      }
+    }
+  ]
+}

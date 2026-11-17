@@ -1,0 +1,28 @@
+{
+  "schema": "touchstone-pattern/1",
+  "id": "cash-into-crypto-through-mules",
+  "status": "tested",
+  "title": "Criminal cash paid in by mules and sent to a handler's wallet",
+  "short": "Cash into crypto, mules",
+  "summary": "Mules pay in cash and send bitcoin to the handler's wallet. The funds are split over many new wallets and brought together again, and a broker hands over cash.",
+  "parts": {
+    "source": "cash-to-crypto-mules",
+    "hiding": [
+      "smurf-wallets"
+    ],
+    "cashOut": "cash-by-courier"
+  },
+  "bankSees": "source",
+  "per1k": 0.4,
+  "references": [
+    {
+      "id": "S57",
+      "pages": "25, 26, 27, 29",
+      "note": "The report describes each method separately. The library combines them as an example."
+    },
+    {
+      "id": "S40",
+      "pages": "paragraphs 3.72 and 5.84"
+    }
+  ]
+}

@@ -1,0 +1,230 @@
+{
+  "schema": "touchstone-part/1",
+  "id": "ponzi-scheme",
+  "kind": "source",
+  "status": "tested",
+  "family": "fraud",
+  "title": "An investment scheme that pays early investors from later ones",
+  "short": "Ponzi scheme",
+  "summary": "Investors pay the operator's account. The operator pays a return on earlier payments and then sends most of the balance to an exchange, which sends the value in bitcoin to the operator's wallet.",
+  "references": [
+    {
+      "id": "S57",
+      "pages": "22, 23"
+    }
+  ],
+  "value": {
+    "from": "steps",
+    "basis": {
+      "kind": "reported",
+      "ref": "S57",
+      "pages": "22, 23",
+      "note": "The report describes returns paid from new investors' money and a collapse when inflows slow. The sizes, counts and shares are assumed."
+    }
+  },
+  "traceClass": "money laundering",
+  "gives": [
+    "BTC@bitcoin"
+  ],
+  "exit": "operatorWallet",
+  "parties": [
+    {
+      "id": "victim",
+      "kind": "customer",
+      "role": "victim",
+      "label": "an investor in the scheme",
+      "count": [
+        8,
+        40
+      ],
+      "pick": {
+        "segments": [
+          "retail"
+        ]
+      }
+    },
+    {
+      "id": "operator",
+      "kind": "customer",
+      "role": "first-party",
+      "label": "the operator of the scheme",
+      "count": [
+        1,
+        1
+      ],
+      "pick": {
+        "segments": [
+          "sme"
+        ],
+        "openedWithinDays": 365
+      }
+    },
+    {
+      "id": "exchange",
+      "kind": "exchange",
+      "label": "an exchange used by the operator",
+      "reuse": "case"
+    },
+    {
+      "id": "operatorWallet",
+      "kind": "wallet",
+      "chain": "bitcoin",
+      "label": "the operator's wallet",
+      "reuse": "case"
+    }
+  ],
+  "steps": [
+    {
+      "id": "invest",
+      "kind": "move",
+      "say": "Each investor pays the operator's account in 1 to 3 payments.",
+      "from": "victim",
+      "to": "operator",
+      "via": "fps",
+      "asset": "GBP",
+      "each": "victim",
+      "amount": {
+        "gbp": [
+          200,
+          3000
+        ]
+      },
+      "pays": "own",
+      "times": [
+        1,
+        3
+      ],
+      "start": {
+        "after": "case",
+        "days": [
+          0,
+          10
+        ]
+      },
+      "between": {
+        "days": [
+          3,
+          15
+        ]
+      },
+      "need": "required",
+      "varies": "rotating",
+      "legRole": "victim-payment",
+      "facts": {
+        "reason": "investment",
+        "payeeType": "business"
+      },
+      "basis": {
+        "kind": "reported",
+        "ref": "S57",
+        "pages": "22, 23",
+        "note": "The report describes one scheme that took about 2.9 billion US dollars from 2 million victims, a mean near 1,450 US dollars. Each victim paid about 500 US dollars to start. The range of 200 to 3,000 pounds is set around those figures. The number of payments, the start and the gaps between payments are assumed."
+      }
+    },
+    {
+      "id": "returns",
+      "kind": "move",
+      "say": "About a month after each payment the operator pays a return on it, while the balance lasts.",
+      "from": "operator",
+      "to": "victim",
+      "via": "fps",
+      "asset": "GBP",
+      "amount": {
+        "of": "leg",
+        "share": [
+          0.1,
+          0.2
+        ]
+      },
+      "start": {
+        "after": "invest",
+        "per": "leg",
+        "days": [
+          20,
+          35
+        ]
+      },
+      "need": "required",
+      "varies": "rotating",
+      "legRole": "first-party-build",
+      "basis": {
+        "kind": "reported",
+        "ref": "S57",
+        "pages": "22, 23",
+        "note": "The report describes a scheme that promised 16% a month, usually paid in tokens, and paid returns from new investors' money. The payment of the return in pounds by bank, the share of 10% to 20% and the wait of 20 to 35 days are assumed. A return that falls due after the operator has emptied the account is paid only as far as the balance allows."
+      }
+    },
+    {
+      "id": "takeout",
+      "kind": "move",
+      "say": "At the end the operator sends most of the balance to an exchange in 2 to 5 payments.",
+      "from": "operator",
+      "to": "exchange",
+      "via": "fps",
+      "asset": "GBP",
+      "amount": {
+        "of": "held",
+        "share": [
+          0.8,
+          0.95
+        ]
+      },
+      "split": "uneven",
+      "times": [
+        2,
+        5
+      ],
+      "start": {
+        "after": "invest",
+        "days": [
+          10,
+          25
+        ]
+      },
+      "between": {
+        "days": [
+          0,
+          3
+        ]
+      },
+      "need": "required",
+      "varies": "rotating",
+      "legRole": "first-party-take",
+      "basis": {
+        "kind": "reported",
+        "ref": "S57",
+        "pages": "22, 23",
+        "note": "The report describes a collapse when inflows slow and coins moved on to exchanges. The transfer of pounds by bank, the share of 80% to 95%, the 2 to 5 payments and the waits are assumed. The rest of the balance remains with the operator."
+      }
+    },
+    {
+      "id": "convert",
+      "kind": "move",
+      "say": "The exchange account sends the value in bitcoin to the operator's wallet.",
+      "from": "exchange",
+      "to": "operatorWallet",
+      "via": "chain",
+      "asset": "out",
+      "amount": {
+        "of": "held",
+        "share": [
+          1,
+          1
+        ]
+      },
+      "start": {
+        "after": "takeout",
+        "hours": [
+          1,
+          48
+        ]
+      },
+      "need": "required",
+      "varies": "ephemeral",
+      "basis": {
+        "kind": "assumed",
+        "note": "The report does not give the wait. The wait of 1 to 48 hours is assumed."
+      }
+    }
+  ]
+}

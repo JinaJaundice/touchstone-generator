@@ -1,0 +1,40 @@
+{
+  "schema": "touchstone-pattern/1",
+  "id": "stolen-funds-through-defi-to-mules",
+  "status": "tested",
+  "title": "Stolen funds moved through lending, pools, a privacy coin and mule accounts",
+  "short": "Stolen funds, DeFi, mules",
+  "summary": "An attacker empties an exchange. The funds pass through a flash loan, liquidity pools and a privacy coin, and an exchange then pays a chain of mule accounts.",
+  "parts": {
+    "source": "exchange-hack",
+    "hiding": [
+      "flash-loan-burst",
+      "liquidity-pool-cycling",
+      "privacy-coin-hop"
+    ],
+    "cashOut": "mule-accounts-chain"
+  },
+  "bankSees": "cash-out",
+  "per1k": 0.4,
+  "value": {
+    "log": [
+      2000,
+      25000
+    ],
+    "basis": {
+      "kind": "assumed",
+      "note": "A case follows one slice of the stolen funds. The slice is at most 25,000 pounds, which is the Faster Payments limit of a personal account in the generator, and its range is assumed."
+    }
+  },
+  "references": [
+    {
+      "id": "S57",
+      "pages": "15, 19, 30 to 32",
+      "note": "The report describes each method separately. The library combines them as an example."
+    },
+    {
+      "id": "S60",
+      "pages": "finding 1 of the cell, on cashing out after 2 to 5 mule accounts"
+    }
+  ]
+}

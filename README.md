@@ -50,15 +50,15 @@ The page offers 6 downloads:
 
 `docs/DATA_DICTIONARY.md` defines every field.
 
-After a make, the page also draws one planted case as a ledger, with a column for each party, a row for each payment and a line from the payer to the payee. The page "Every crime pattern the generator can plant" lists the 38 built-in patterns, and 37 of them have a rate of their own. The page of a pattern draws the planted case that you choose, one step at a time.
+After a make, the page also draws one planted case as a ledger, with a column for each party, a row for each payment and a line from the payer to the payee. The page "Every crime pattern the generator can plant" lists the 38 built-in patterns and the 12 library patterns, and 37 of the built-in patterns have a rate of their own. The page of a pattern draws the planted case that you choose, one step at a time.
 
 ## The pattern library
 
-This copy holds the 2 library patterns of this release, "A ransom paid in bitcoin and moved through a mixer" and "Stolen exchange funds peeled through new wallets and sold at the bank", with their 6 parts. Each is a file under `web/src/lib/gen/patterns/`. `docs/PATTERN_FORMAT.md` sets out the format of a part file and of a pattern file, the checks on a file and the rules that plant a case. A page number in a library file counts the pages of the PDF file of its source. One PDF page of S57 holds 2 printed pages, so its printed page numbers differ from the numbers in the files.
+This copy holds the 12 library patterns and their 31 parts. The page "Every crime pattern the generator can plant" lists them. Each is a file under `web/src/lib/gen/patterns/`. `docs/PATTERN_FORMAT.md` sets out the format of a part file and of a pattern file, the checks on a file and the rules that plant a case. A page number in a library file counts the pages of the PDF file of its source. One PDF page of S57 holds 2 printed pages, so its printed page numbers differ from the numbers in the files.
 
-A library pattern is off until you switch it on in the panel "Library patterns" under the group Crime of Adjust the bank. A data set made with both patterns off is the same as it was before the library existed. Each pattern has a page that gives its steps, its sources and a typical case.
+A library pattern is off until you switch it on in the panel "Library patterns" under the group Crime of Adjust the bank. A data set made with every library pattern off is the same as it was before the library existed. Each pattern has a page that gives its steps, its sources, a typical case and the section "Shape it". That section holds 4 settings, the switch with its rate, the size of the amounts, the speed of the steps and the end of the case that the bank sees. The settings take effect in the next data set that you make, and the typical case on the page follows the size, the speed and the end at once.
 
-Where a data set holds library cases, the page offers 2 further CSV files: "Case payments", with a row for each planned payment of each case, and "Parties", with a row for each party of each case. The 6 downloads above do not change. Both files hold the answer, so a rule or a model must not read them. Payments outside the bank's records belong to planted cases only, and they are no record of a whole chain.
+Where a data set holds library cases, the page offers 2 further CSV files, "Case payments" with a row for each planned payment and "Parties" with a row for each party. The 6 downloads above do not change. Both files hold the answer, so a rule or a model must not read them. Payments outside the bank's records belong to planted cases only, and they are no record of a whole chain.
 
 ## The labels
 

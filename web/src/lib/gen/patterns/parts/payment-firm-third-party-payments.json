@@ -1,0 +1,196 @@
+{
+  "schema": "touchstone-part/1",
+  "id": "payment-firm-third-party-payments",
+  "kind": "cash-out",
+  "status": "tested",
+  "family": "sanctions",
+  "title": "A payment firm that sells a stablecoin and pays third parties abroad",
+  "short": "Payment firm payments",
+  "summary": "The firm sells the stablecoin at an exchange, which pays the firm's account. The firm then pays third parties abroad in corridor and high-risk countries.",
+  "references": [
+    {
+      "id": "S57",
+      "pages": "36"
+    }
+  ],
+  "takes": "any",
+  "entry": "exchange",
+  "parties": [
+    {
+      "id": "exchange",
+      "kind": "exchange",
+      "label": "an exchange where the firm sells the stablecoin",
+      "reuse": "case"
+    },
+    {
+      "id": "firm",
+      "kind": "customer",
+      "role": "launderer",
+      "label": "the payment firm",
+      "count": [
+        1,
+        1
+      ],
+      "pick": {
+        "segments": [
+          "sme",
+          "corporate"
+        ]
+      }
+    },
+    {
+      "id": "corridorParty",
+      "kind": "outside-account",
+      "label": "a third party abroad in a corridor country",
+      "reuse": "leg",
+      "country": "corridor"
+    },
+    {
+      "id": "riskParty",
+      "kind": "outside-account",
+      "label": "a third party abroad in a high-risk country",
+      "reuse": "leg",
+      "country": "high-risk"
+    }
+  ],
+  "steps": [
+    {
+      "id": "sell",
+      "kind": "move",
+      "say": "The firm sells the stablecoin at the exchange.",
+      "from": "exchange",
+      "to": "exchange",
+      "via": "off-record",
+      "asset": "in",
+      "amount": {
+        "of": "held",
+        "share": [
+          1,
+          1
+        ]
+      },
+      "start": {
+        "after": "entry",
+        "hours": [
+          1,
+          24
+        ]
+      },
+      "need": "required",
+      "varies": "rotating",
+      "basis": {
+        "kind": "reported",
+        "ref": "S57",
+        "pages": "36",
+        "note": "The report says that the firm converted the stablecoin into dollars through exchanges. The wait is assumed."
+      }
+    },
+    {
+      "id": "payout",
+      "kind": "move",
+      "say": "The exchange pays the firm's account in 2 to 6 payments.",
+      "from": "exchange",
+      "to": "firm",
+      "via": "fps",
+      "asset": "GBP",
+      "amount": {
+        "of": "held",
+        "share": [
+          1,
+          1
+        ]
+      },
+      "split": "uneven",
+      "times": [
+        2,
+        6
+      ],
+      "start": {
+        "after": "sell",
+        "hours": [
+          4,
+          48
+        ]
+      },
+      "between": {
+        "days": [
+          0,
+          3
+        ]
+      },
+      "need": "required",
+      "varies": "rotating",
+      "legRole": "integration",
+      "basis": {
+        "kind": "reported",
+        "ref": "S57",
+        "pages": "36",
+        "note": "The report says that the firm used bank accounts. The counts, the waits and the payment in pounds to the firm's bank account are assumed."
+      }
+    },
+    {
+      "id": "payCorridor",
+      "kind": "move",
+      "say": "After each credit the firm pays a third party in a corridor country by international payment.",
+      "from": "firm",
+      "to": "corridorParty",
+      "via": "swift",
+      "asset": "GBP",
+      "amount": {
+        "of": "leg",
+        "share": [
+          0.55,
+          0.7
+        ]
+      },
+      "start": {
+        "after": "payout",
+        "per": "leg",
+        "days": [
+          0,
+          5
+        ]
+      },
+      "need": "required",
+      "varies": "rotating",
+      "legRole": "layering",
+      "basis": {
+        "kind": "reported",
+        "ref": "S57",
+        "pages": "36",
+        "note": "The report says that the firm paid third parties for its clients and that some payments were for export-controlled goods. The share of 55% to 70% and the wait are assumed."
+      }
+    },
+    {
+      "id": "payRisk",
+      "kind": "move",
+      "say": "After each credit the firm also pays a third party in a high-risk country.",
+      "from": "firm",
+      "to": "riskParty",
+      "via": "swift",
+      "asset": "GBP",
+      "amount": {
+        "of": "leg",
+        "share": [
+          0.25,
+          0.28
+        ]
+      },
+      "start": {
+        "after": "payout",
+        "per": "leg",
+        "days": [
+          0,
+          5
+        ]
+      },
+      "need": "required",
+      "varies": "rotating",
+      "legRole": "layering",
+      "basis": {
+        "kind": "assumed",
+        "note": "The report does not give the countries of the third parties. The payment to a high-risk country after each credit and its share of 25% to 28% are assumed, so that 80% to 98% of each credit leaves the account."
+      }
+    }
+  ]
+}

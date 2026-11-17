@@ -2,7 +2,7 @@
 // It reads the case view of lib/gen/caseView.ts and nothing from the working app, so the public copy can carry it.
 
 import { Fragment, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from "react";
-import { DRAWN_COLUMNS, caseSteps, flowColumns, ledgerDotY, memberRef, splitShortAddress, partyName, stepTitle, withinLabel, type CaseView, type FlowLeg, type FlowParty } from "./gen/caseView";
+import { DRAWN_COLUMNS, caseSteps, flowColumns, ledgerDotY, memberRef, splitShortAddress, partyName, stepHeading, withinLabel, type CaseView, type FlowLeg, type FlowParty } from "./gen/caseView";
 import type { Calendar } from "./gen/calendar";
 import { METHOD_SHORT, RAIL_LABEL, dayLabel, fmtGbp, fmtMinute, plural } from "./format";
 import { Button, Empty } from "./ui";
@@ -81,14 +81,19 @@ function NameText({ name }: { name: string }) {
   return address ? <>{head}<span className="flow-ref">{address}</span></> : <>{name}</>;
 }
 
+/** A name in the middle of a sentence: its first letter is lower case, except where the name opens with a short form such as "OFAC". */
+function midSentence(name: string): string {
+  return /^[A-Z][A-Z]/.test(name) ? name : name.charAt(0).toLowerCase() + name.slice(1);
+}
+
 /** The name of a party for a row of the text form and the compact form, with the full address for its title. */
 function PartyName({ p, mid }: { p: FlowParty; mid?: boolean }) {
   const name = partyName(p);
-  return <span title={p.address ?? undefined}><NameText name={mid ? name.charAt(0).toLowerCase() + name.slice(1) : name} /></span>;
+  return <span title={p.address ?? undefined}><NameText name={mid ? midSentence(name) : name} /></span>;
 }
 
 /** One payment of the drawn form: the line from the payer's column to the payee's column. A party with no column draws no line. */
-function DrawnRow({ leg, cols, at, byKey, cal }: { leg: FlowLeg; cols: ReturnType<typeof flowColumns>; at: Map<string, number>; byKey: Map<string, FlowParty>; cal: Calendar }) {
+export function DrawnRow({ leg, cols, at, byKey, cal }: { leg: FlowLeg; cols: ReturnType<typeof flowColumns>; at: Map<string, number>; byKey: Map<string, FlowParty>; cal: Calendar }) {
   const n = cols.length;
   const fi = at.get(leg.from);
   const ti = at.get(leg.to);
@@ -106,15 +111,23 @@ function DrawnRow({ leg, cols, at, byKey, cal }: { leg: FlowLeg; cols: ReturnTyp
         const pays = i === fi;
         const gets = i === ti;
         let name: { text: string; title?: string } | null = null;
+        // the full names of a payment inside one column, or of the party at the end of a line into a shared column that has no short reference
+        let cellTitle: string | undefined;
+        let within: string | null = null;
         if ((pays || gets) && from && to) {
           if (pays && gets) {
             // One column holds both ends and no arrow can show the direction, so the words say who pays whom.
-            // The label is empty for a party with no reference, and the dot and the text for a screen reader remain.
+            // The label is empty for a party with no reference, and the dot, the title and the text for a screen reader remain.
             name = { text: withinLabel(from, to), title: [from.address, to.address].filter(Boolean).join(" to ") || undefined };
-          } else if (c.count > 1) name = nameOf(pays ? from : to);
+            within = from.key === to.key ? `a payment inside ${midSentence(partyName(from))}` : `${partyName(from)} pays ${midSentence(partyName(to))}`;
+            cellTitle = capital(within);
+          } else if (c.count > 1) {
+            name = nameOf(pays ? from : to);
+            if (!name.text) cellTitle = partyName(pays ? from : to);
+          }
         }
         return (
-          <td className="flow-cell" key={c.key}>
+          <td className="flow-cell" key={c.key} title={cellTitle}>
             {i === 0 && (
               <svg className="flow-draw" aria-hidden="true" style={{ width: `calc(${n} * 100%)` }}>
                 {both && fi !== ti && <line className={"flow-line seen-" + leg.seenBy} x1={pct(fi)} x2={pct(ti)} y1={y} y2={y} />}
@@ -126,9 +139,11 @@ function DrawnRow({ leg, cols, at, byKey, cal }: { leg: FlowLeg; cols: ReturnTyp
                 )}
               </svg>
             )}
-            {pays && <span className="sr-only">pays{to ? " " + partyName(to) : ""} </span>}
-            {gets && <span className="sr-only">is paid by{from ? " " + partyName(from) : ""}</span>}
-            {name && name.text && <span className="flow-name" title={name.title}>{name.text}</span>}
+            {within !== null ? <span className="sr-only">{within}</span> : <>
+              {pays && <span className="sr-only">pays{to ? " " + midSentence(partyName(to)) : ""} </span>}
+              {gets && <span className="sr-only">is paid by{from ? " " + midSentence(partyName(from)) : ""}</span>}
+            </>}
+            {name && name.text && <span className="flow-name" title={name.title} aria-hidden={within !== null ? "true" : undefined}>{name.text}</span>}
           </td>
         );
       })}
@@ -177,6 +192,19 @@ function CompactRow({ leg, byKey, cal }: { leg: FlowLeg; byKey: Map<string, Flow
   );
 }
 
+/** The words of the use of a part that the column of this party gives, such as "use 1 of 2", or undefined where the case names the part once. */
+function useWords(view: CaseView, p: FlowParty | undefined): string | undefined {
+  return p && p.part !== null ? view.useLabels[p.part] : undefined;
+}
+
+/** The detail under a column heading. The words of the use of a part have a line of their own and do not break inside. */
+function ColumnDetail({ detail, words }: { detail: string; words?: string }) {
+  if (!detail) return null;
+  if (!words || !detail.endsWith(words)) return <span className="flow-detail">{detail}</span>;
+  const head = detail.slice(0, detail.length - words.length).replace(/, $/, "");
+  return <>{head && <span className="flow-detail">{head}</span>}<span className="flow-detail">{words.replace(/ /g, "\u00a0")}</span></>;
+}
+
 /** The key to the line styles and the mark of an account of the bank. */
 export function FlowLegend() {
   return (
@@ -190,6 +218,29 @@ export function FlowLegend() {
       <span><span className="dot dot-muted" />an account at this bank</span>
     </div>
   );
+}
+
+/**
+ * The paragraph above a ledger. The drawn form adds a sentence only where the rows that it draws hold what the sentence describes:
+ * a label inside a shared column, a dot with no line (a payment inside one column, or of a party to itself) and a hand-off.
+ */
+export function ledgerRead(view: CaseView, drawn: boolean, cols: ReturnType<typeof flowColumns>, steps: { step: string; rows: FlowLeg[] }[]): string {
+  if (!drawn) return "Each row is one payment of the case, from the party that pays to the party that is paid. A party is an account at this bank or someone outside it.";
+  const byKey = new Map(view.parties.map((p) => [p.key, p]));
+  const at = new Map<string, number>();
+  cols.forEach((c, i) => c.parties.forEach((k) => at.set(k, i)));
+  let labelled = false, dot = false;
+  for (const s of steps) for (const leg of s.rows) {
+    const fi = at.get(leg.from), ti = at.get(leg.to), from = byKey.get(leg.from), to = byKey.get(leg.to);
+    if (fi === undefined || fi !== ti || !from || !to) continue;
+    if (leg.from === leg.to || !withinLabel(from, to)) dot = true; else labelled = true;
+  }
+  const many = cols.some((c) => c.key.startsWith("next:") || (c.key.startsWith("part:") && c.parties.some((k) => byKey.get(k)?.end !== "hiding")));
+  return "Each row is one payment of the case. Its line runs from the party that pays, at the dot, to the party that is paid, at the arrowhead. A column holds one party, or a group of similar parties."
+    + (many ? " This case has many parties, so the parties of some parts share one column. The sentence of each step says what its payments are." : "")
+    + (labelled ? " Inside a shared column, a label names the party that pays and the party that is paid by its customer id or by the last 4 characters of its address." : "")
+    + (dot ? " A dot with no line is a payment inside one column. Point at it to read who pays whom." : "")
+    + (steps.some((s) => s.step.endsWith(".handoff")) ? " A dashed line is a hand-off from one part of the method to the next." : "");
 }
 
 /**
@@ -229,9 +280,7 @@ export function FlowLedger({ view, shown, cal }: { view: CaseView; shown: number
   return (
     <>
       <p className="flow-read">
-        {drawn
-          ? "Each row is one payment of the case. Its line runs from the party that pays, at the dot, to the party that is paid, at the arrowhead. A column holds one party, or a group of similar parties." + (cols.some((c) => c.count > 1) ? " Inside a shared column, a label gives the last 4 characters of the address of the wallet that pays and of the wallet that is paid." : "")
-          : "Each row is one payment of the case, from the party that pays to the party that is paid. A party is an account at this bank or someone outside it."}
+        {ledgerRead(view, drawn, cols, steps)}
       </p>
       <div className="tbl-wrap" tabIndex={0} ref={wrap} role="region" aria-label={view.caseId < 0 ? "The payments of the typical case" : `The payments of case ${view.caseId}`}>
         <table className={"tbl flow" + (drawn ? "" : " flow-text") + (form === "compact" ? " flow-compact" : "")} style={drawn ? ({ "--flow-cols": cols.length } as CSSProperties) : undefined}>
@@ -250,8 +299,8 @@ export function FlowLedger({ view, shown, cal }: { view: CaseView; shown: number
               {drawn
                 ? cols.map((c) => (
                     <th scope="col" className="flow-party" key={c.key} title={c.count === 1 ? byKey.get(c.parties[0])?.address ?? undefined : undefined}>
-                      {byKey.get(c.parties[0])?.account != null && <span className="dot dot-muted" />}{c.label}
-                      {c.detail && <span className="flow-detail">{c.detail}</span>}
+                      {byKey.get(c.parties[0])?.account != null && <><span className="dot dot-muted" /><span className="sr-only">an account at this bank, </span></>}{c.label}
+                      <ColumnDetail detail={c.detail} words={useWords(view, byKey.get(c.parties[0]))} />
                     </th>
                   ))
                 : form === "text" ? <><th scope="col">From</th><th scope="col">To</th></> : null}
@@ -266,7 +315,7 @@ export function FlowLedger({ view, shown, cal }: { view: CaseView; shown: number
               <tbody key={s.step}>
                 <tr className="flow-step">
                   <th scope="rowgroup" colSpan={span}>
-                    <span className="caps">Step {k + 1}</span><span className="flow-title">{stepTitle(s.step)}.</span><span className="flow-say">{stop(capital(s.say))}</span><span className="faint">{plural(s.rows.length, "payment")}</span>
+                    <span className="caps">Step {k + 1}</span><span className="flow-title">{stepHeading(view, s.step)}.</span><span className="flow-say">{stop(capital(s.say))}</span><span className="faint">{plural(s.rows.length, "payment").replace(" ", "\u00a0")}</span>
                   </th>
                 </tr>
                 {long

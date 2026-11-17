@@ -1,0 +1,269 @@
+{
+  "schema": "touchstone-part/1",
+  "id": "exchange-to-bank-account",
+  "kind": "cash-out",
+  "status": "tested",
+  "family": "aml",
+  "title": "Paid out by an exchange into a bank account",
+  "short": "Exchange pay-out",
+  "summary": "The funds are sold at an exchange and paid into a bank account as if they were investment gains. Most of the money is then sent on.",
+  "references": [
+    {
+      "id": "S57",
+      "pages": "19, 33 to 35"
+    }
+  ],
+  "takes": "any",
+  "entry": "exchange",
+  "parties": [
+    {
+      "id": "exchange",
+      "kind": "exchange",
+      "label": "an exchange where the launderer holds an account",
+      "reuse": "case"
+    },
+    {
+      "id": "holder",
+      "kind": "customer",
+      "role": "launderer",
+      "label": "the account holder at the bank",
+      "count": [
+        1,
+        1
+      ],
+      "pick": {
+        "segments": [
+          "retail",
+          "sme"
+        ],
+        "hasCard": true
+      }
+    },
+    {
+      "id": "onward",
+      "kind": "outside-account",
+      "label": "an account at another bank",
+      "reuse": "case",
+      "country": "ordinary"
+    },
+    {
+      "id": "cash",
+      "kind": "cash",
+      "label": "cash in hand",
+      "reuse": "case"
+    },
+    {
+      "id": "giftCards",
+      "kind": "merchant",
+      "label": "a seller of prepaid gift cards",
+      "reuse": "case"
+    }
+  ],
+  "steps": [
+    {
+      "id": "trade",
+      "kind": "move",
+      "say": "The launderer sells the funds at the exchange after a few trades.",
+      "from": "exchange",
+      "to": "exchange",
+      "via": "off-record",
+      "asset": "in",
+      "amount": {
+        "of": "held",
+        "share": [
+          1,
+          1
+        ]
+      },
+      "times": [
+        1,
+        4
+      ],
+      "start": {
+        "after": "entry",
+        "hours": [
+          1,
+          48
+        ]
+      },
+      "between": {
+        "minutes": [
+          5,
+          240
+        ]
+      },
+      "need": "required",
+      "varies": "rotating",
+      "basis": {
+        "kind": "reported",
+        "ref": "S57",
+        "pages": "33, 34",
+        "note": "The report says that the funds are run through some trading so that they look normal. The count of trades and the waits are assumed."
+      }
+    },
+    {
+      "id": "payout",
+      "kind": "move",
+      "say": "The exchange pays the money into the account at the bank.",
+      "from": "exchange",
+      "to": "holder",
+      "via": "fps",
+      "asset": "GBP",
+      "amount": {
+        "of": "held",
+        "share": [
+          1,
+          1
+        ]
+      },
+      "split": "uneven",
+      "times": [
+        2,
+        6
+      ],
+      "start": {
+        "after": "trade",
+        "hours": [
+          2,
+          72
+        ]
+      },
+      "between": {
+        "days": [
+          0,
+          3
+        ]
+      },
+      "need": "required",
+      "varies": "rotating",
+      "legRole": "integration",
+      "basis": {
+        "kind": "reported",
+        "ref": "S57",
+        "pages": "33, 34",
+        "note": "The report says that the funds are transferred to bank accounts as alleged investment gains. The count of payments and the waits are assumed."
+      }
+    },
+    {
+      "id": "sendOn",
+      "kind": "move",
+      "say": "The account holder sends most of each payment on.",
+      "from": "holder",
+      "to": "onward",
+      "via": [
+        "fps",
+        "swift"
+      ],
+      "asset": "GBP",
+      "amount": {
+        "of": "leg",
+        "share": [
+          0.6,
+          0.9
+        ]
+      },
+      "start": {
+        "after": "payout",
+        "per": "leg",
+        "days": [
+          0,
+          3
+        ]
+      },
+      "need": "required",
+      "varies": "rotating",
+      "legRole": "layering",
+      "basis": {
+        "kind": "assumed",
+        "note": "The report does not describe what the account holder does next. The share and the wait follow the built-in pattern for money that comes in and goes straight out."
+      }
+    },
+    {
+      "id": "takeCash",
+      "kind": "move",
+      "say": "The account holder takes part of the money out in cash at a counter.",
+      "from": "holder",
+      "to": "cash",
+      "via": "cash-out",
+      "asset": "cash",
+      "amount": {
+        "of": "held",
+        "share": [
+          0.3,
+          0.8
+        ]
+      },
+      "times": [
+        1,
+        2
+      ],
+      "start": {
+        "after": "sendOn",
+        "days": [
+          0,
+          4
+        ]
+      },
+      "between": {
+        "days": [
+          0,
+          2
+        ]
+      },
+      "need": "supporting",
+      "chance": 0.3,
+      "varies": "rotating",
+      "legRole": "cash-out",
+      "basis": {
+        "kind": "assumed",
+        "note": "The report names cash as one way out without figures. The share of cases and the sizes are assumed."
+      }
+    },
+    {
+      "id": "giftCards",
+      "kind": "move",
+      "say": "The account holder buys prepaid gift cards by card.",
+      "from": "holder",
+      "to": "giftCards",
+      "via": "card",
+      "asset": "GBP",
+      "amount": {
+        "gbp": [
+          100,
+          500
+        ]
+      },
+      "times": [
+        1,
+        4
+      ],
+      "start": {
+        "after": "payout",
+        "days": [
+          0,
+          5
+        ]
+      },
+      "between": {
+        "days": [
+          0,
+          2
+        ]
+      },
+      "need": "supporting",
+      "chance": 0.2,
+      "varies": "rotating",
+      "legRole": "integration",
+      "facts": {
+        "method": "card-online",
+        "mcc": 5947
+      },
+      "basis": {
+        "kind": "reported",
+        "ref": "S57",
+        "pages": "19",
+        "note": "One case in the report used prepaid gift cards as a way out. The share of cases, the sizes, the count of purchases and the waits are assumed."
+      }
+    }
+  ]
+}

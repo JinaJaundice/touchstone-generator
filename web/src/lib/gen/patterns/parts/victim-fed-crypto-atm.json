@@ -1,0 +1,174 @@
+{
+  "schema": "touchstone-part/1",
+  "id": "victim-fed-crypto-atm",
+  "kind": "source",
+  "status": "tested",
+  "family": "fraud",
+  "title": "A scam victim who takes out cash and feeds a crypto cash machine",
+  "short": "Victim at crypto machines",
+  "summary": "A victim takes out cash at a counter in several sums. Each sum is fed into a crypto cash machine, which sends bitcoin to the scammer's wallet.",
+  "references": [
+    {
+      "id": "S57",
+      "pages": "24"
+    }
+  ],
+  "value": {
+    "from": "steps",
+    "basis": {
+      "kind": "reported",
+      "ref": "S57",
+      "pages": "24",
+      "note": "The report says that criminals coach or coerce victims to feed machines and spread small payments over many machines. The sizes and counts are assumed. A case uses one machine, which differs from the report's spread over many machines."
+    }
+  },
+  "traceClass": "money laundering",
+  "gives": [
+    "BTC@bitcoin"
+  ],
+  "exit": "scammerWallet",
+  "parties": [
+    {
+      "id": "victim",
+      "kind": "customer",
+      "role": "victim",
+      "label": "the victim of the scam",
+      "count": [
+        1,
+        1
+      ],
+      "pick": {
+        "segments": [
+          "retail"
+        ],
+        "minAge": 60,
+        "balance": "top-quarter"
+      }
+    },
+    {
+      "id": "cash",
+      "kind": "cash",
+      "label": "the victim's cash in hand",
+      "reuse": "case"
+    },
+    {
+      "id": "atm",
+      "kind": "crypto-atm",
+      "label": "a crypto cash machine",
+      "reuse": "case"
+    },
+    {
+      "id": "scammerWallet",
+      "kind": "wallet",
+      "chain": "bitcoin",
+      "label": "the scammer's wallet",
+      "reuse": "case"
+    }
+  ],
+  "steps": [
+    {
+      "id": "withdraw",
+      "kind": "move",
+      "say": "The victim takes out cash at a counter, 2 to 8 times.",
+      "from": "victim",
+      "to": "cash",
+      "via": "cash-out",
+      "asset": "cash",
+      "amount": {
+        "gbp": [
+          300,
+          2500
+        ]
+      },
+      "pays": "own",
+      "times": [
+        2,
+        8
+      ],
+      "start": {
+        "after": "case",
+        "hours": [
+          0,
+          48
+        ]
+      },
+      "between": {
+        "hours": [
+          6,
+          30
+        ]
+      },
+      "need": "required",
+      "varies": "rotating",
+      "legRole": "victim-payment",
+      "basis": {
+        "kind": "assumed",
+        "note": "No source read for the library describes a victim withdrawing cash at a counter. The report describes victims who are coached to feed crypto cash machines. The sums of 300 to 2,500 pounds, the counts and the waits of 6 to 30 hours are assumed. The victim is drawn from the quarter of older customers who hold the most, which is also assumed."
+      }
+    },
+    {
+      "id": "feed",
+      "kind": "move",
+      "say": "The victim feeds each sum of cash into the crypto cash machine.",
+      "from": "cash",
+      "to": "atm",
+      "via": "off-record",
+      "asset": "cash",
+      "amount": {
+        "of": "leg",
+        "share": [
+          1,
+          1
+        ]
+      },
+      "start": {
+        "after": "withdraw",
+        "per": "leg",
+        "hours": [
+          1,
+          24
+        ]
+      },
+      "need": "required",
+      "varies": "rotating",
+      "basis": {
+        "kind": "reported",
+        "ref": "S57",
+        "pages": "24",
+        "note": "The report describes victims who feed machines. The wait is assumed."
+      }
+    },
+    {
+      "id": "send",
+      "kind": "move",
+      "say": "The machine sends the value in bitcoin to the scammer's wallet.",
+      "from": "atm",
+      "to": "scammerWallet",
+      "via": "chain",
+      "asset": "out",
+      "amount": {
+        "of": "leg",
+        "share": [
+          1,
+          1
+        ]
+      },
+      "start": {
+        "after": "feed",
+        "per": "leg",
+        "minutes": [
+          5,
+          60
+        ]
+      },
+      "need": "required",
+      "varies": "ephemeral",
+      "basis": {
+        "kind": "reported",
+        "ref": "S57",
+        "pages": "24",
+        "note": "The report describes the machine as the way to the scammer's wallet. The wait is assumed, and the machine's own fee is not modelled."
+      }
+    }
+  ]
+}

@@ -41,3 +41,12 @@ const MON = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct
 /** A day of the data set as its calendar date: "Mon 6 Jul". */
 export const dayLabel = (date: string, weekday: number) => { const [, m, d] = date.split("-").map(Number); return `${DOW[weekday]} ${d} ${MON[m - 1]}`; };
 export const plural = (n: number, one: string, many = one + "s") => `${fmtInt(n)} ${n === 1 ? one : many}`;
+/** A length of time in words: "40 minutes" under an hour, whole hours such as "15 hours" under a day, and days and hours such as "2 days and 8 hours" from a day, with the hours left out where they are 0. */
+export const lengthText = (minutes: number): string => {
+  const m = Math.round(minutes);
+  if (m < 60) return plural(m, "minute");
+  const h = Math.round(m / 60);
+  if (m < 1440) return plural(Math.min(h, 23), "hour");
+  const d = Math.floor(h / 24), r = h % 24;
+  return r === 0 ? plural(d, "day") : `${plural(d, "day")} and ${plural(r, "hour")}`;
+};

@@ -1,0 +1,143 @@
+{
+  "schema": "touchstone-part/1",
+  "id": "cash-to-crypto-mules",
+  "kind": "source",
+  "status": "tested",
+  "family": "aml",
+  "title": "Criminal cash paid in by mules and sent to a handler as bitcoin",
+  "short": "Cash to crypto mules",
+  "summary": "Several customers with new accounts pay in cash in sums below 10,000 pounds. Within 2 days of each deposit they buy bitcoin and send most of it to the handler's wallet.",
+  "references": [
+    {
+      "id": "S40",
+      "pages": "paragraphs 3.72 and 5.84"
+    },
+    {
+      "id": "S57",
+      "pages": "26"
+    }
+  ],
+  "value": {
+    "from": "steps",
+    "basis": {
+      "kind": "reported",
+      "ref": "S40",
+      "pages": "paragraphs 3.72 and 5.84",
+      "note": "The national risk assessment says that mule networks typically move less than 10,000 pounds at a time and send funds to wallets that the handler controls. The report on illicit finance (page 26) says that couriers put drug cash into wallets. The sums, the counts, the number of customers and the age of their accounts are assumed."
+    }
+  },
+  "traceClass": "money laundering",
+  "gives": [
+    "BTC@bitcoin"
+  ],
+  "exit": "handlerWallet",
+  "parties": [
+    {
+      "id": "mule",
+      "kind": "customer",
+      "role": "launderer",
+      "label": "a customer who pays in cash",
+      "count": [
+        3,
+        8
+      ],
+      "pick": {
+        "segments": [
+          "retail"
+        ],
+        "openedWithinDays": 365
+      }
+    },
+    {
+      "id": "cash",
+      "kind": "cash",
+      "label": "criminal cash in hand",
+      "reuse": "case"
+    },
+    {
+      "id": "handlerWallet",
+      "kind": "wallet",
+      "chain": "bitcoin",
+      "label": "the handler's wallet",
+      "reuse": "case"
+    }
+  ],
+  "steps": [
+    {
+      "id": "deposit",
+      "kind": "move",
+      "say": "Each customer pays in cash at a counter, 2 to 6 times.",
+      "from": "cash",
+      "to": "mule",
+      "via": "cash-in",
+      "asset": "cash",
+      "each": "mule",
+      "amount": {
+        "gbp": [
+          1500,
+          9500
+        ]
+      },
+      "pays": "own",
+      "times": [
+        2,
+        6
+      ],
+      "start": {
+        "after": "case",
+        "days": [
+          0,
+          3
+        ]
+      },
+      "between": {
+        "days": [
+          1,
+          6
+        ]
+      },
+      "need": "required",
+      "varies": "rotating",
+      "legRole": "placement",
+      "basis": {
+        "kind": "reported",
+        "ref": "S40",
+        "pages": "paragraph 5.84",
+        "note": "The national risk assessment (paragraph 5.84) says that mule accounts typically move less than 10,000 pounds at a time. It does not describe cash paid in at a counter, which is assumed. The sums of 1,500 to 9,500 pounds, the counts and the waits are assumed."
+      }
+    },
+    {
+      "id": "buyAndSend",
+      "kind": "move",
+      "say": "Within 2 days of each deposit the customer buys bitcoin and sends most of it to the handler's wallet.",
+      "from": "mule",
+      "to": "handlerWallet",
+      "via": "bank-crypto",
+      "asset": "BTC",
+      "amount": {
+        "of": "leg",
+        "share": [
+          0.85,
+          0.97
+        ]
+      },
+      "start": {
+        "after": "deposit",
+        "per": "leg",
+        "days": [
+          0,
+          2
+        ]
+      },
+      "need": "required",
+      "varies": "rotating",
+      "legRole": "layering",
+      "basis": {
+        "kind": "reported",
+        "ref": "S40",
+        "pages": "paragraph 3.72",
+        "note": "The national risk assessment says that mules are instructed to move criminal funds into wallets that the mule handler controls. The share of 85% to 97%, the wait and the use of bitcoin are assumed. The rest remains with the customer."
+      }
+    }
+  ]
+}

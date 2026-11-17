@@ -1,16 +1,20 @@
-import { useMemo, useState } from "react";
-import { useGenStore } from "../lib/genStore";
-import { caseView, libraryIdOf, listCases, mergeReferences, patternCases, patternSteps, stepTitle, typicalCaseView, type CaseSummary } from "../lib/gen/caseView";
+import { useEffect, useMemo, useRef, useState, type KeyboardEvent as KbEvent, type ReactNode } from "react";
+import { genActions, useGenStore } from "../lib/genStore";
+import { normaliseLibrary } from "../lib/gen/config";
+import { libraryCaseCount, libraryRateText } from "../lib/gen/archetypes";
+import { caseMinutes, caseView, libraryIdOf, listCases, mergeReferences, patternCases, patternSteps, stepTitle, typicalCaseView, useLabelsOf, type CaseSummary, type CaseView } from "../lib/gen/caseView";
 import { makeCalendar } from "../lib/gen/calendar";
-import { ALL_TYPOLOGIES, FAMILY_LABEL, FAMILY_OWNER, TYPOLOGY_FAMILY, patternFamily, patternLabel, patternShort, type Dataset, type Family, type GenConfig, type Typology } from "../lib/gen/types";
+import { ALL_TYPOLOGIES, FAMILY_LABEL, FAMILY_OWNER, TYPOLOGY_FAMILY, patternFamily, patternLabel, patternShort, type Dataset, type Family, type GenConfig, type LibrarySetting, type Typology } from "../lib/gen/types";
 import references from "../lib/gen/patterns/references.json";
 import labelsFile from "../lib/gen/patterns/labels.json";
 import { PARTS, PATTERNS, patternOf } from "../lib/gen/patterns/index";
+import { LIBRARY_ROW_CAP } from "../lib/gen/patterns/plant";
+import { partIdOf, usesOf } from "../lib/gen/patterns/types";
 import type { Basis, Part, Pattern, Step } from "../lib/gen/patterns/types";
-import { Doc, NextStep, PageHead, Section, Working, type ContentsItem } from "../lib/ui";
+import { Button, Doc, NextStep, PageHead, Section, Slider, Toggle, Working, type ContentsItem } from "../lib/ui";
 import { FAMILY_ORDER, Stepper } from "../lib/viz";
 import { FlowLedger, StepControls } from "../lib/flow";
-import { fmtGbp, fmtPct, plural } from "../lib/format";
+import { fmtGbp, fmtInt, fmtPct, lengthText, plural } from "../lib/format";
 
 /* The patterns pages of the generator: the list of every crime pattern and the page of one pattern, where its planted
    cases are drawn one step at a time. They read the generator store only and link only to pages of the generator. */
@@ -238,12 +242,162 @@ function BasisText({ what, basis }: { what: string; basis: Basis }) {
 /** The word for the kind of a part. */
 const PART_WORD = { source: "The source of the money", hiding: "A way of hiding the money", "cash-out": "The cash-out" } as const;
 
+/** The 5 steps of the size and the speed of a library pattern, with the words that a dial shows. */
+const SHAPE_STEPS = [{ value: 0.25, label: "a quarter" }, { value: 0.5, label: "half" }, { value: 1, label: "unchanged" }, { value: 2, label: "2 times" }, { value: 4, label: "4 times" }];
+/** The 3 ends that the bank can see, in the words of a step. */
+const END_STEPS = [{ value: "source", label: "the source" }, { value: "cash-out", label: "the cash-out" }, { value: "both", label: "both" }] as const;
+/** A factor in words such as "3 times", for a value that is none of the 5 steps. */
+const timesText = (v: number) => `${Math.round(v * 100) / 100} times`;
+/** The index of the step nearest a value, and whether the value is on that step. */
+function nearestShape(v: number): { index: number; exact: boolean } {
+  let index = 0;
+  SHAPE_STEPS.forEach((s, i) => { if (Math.abs(s.value - v) < Math.abs(SHAPE_STEPS[index].value - v)) index = i; });
+  return { index, exact: Math.abs(SHAPE_STEPS[index].value - v) < 1e-6 };
+}
+/** The settings of a library pattern in a configuration, each held within its limits, and the pattern's own value for each field that the configuration does not hold. */
+function ownSetting(cfg: GenConfig, id: string): LibrarySetting {
+  return normaliseLibrary({ [id]: cfg.library?.[id] ?? null })![id];
+}
+
+/** One dial of the section "Shape it", in the form of a dial of the bank builder: a head with the label and the value, the control and one line of help. */
+function ShapeDial({ label, value, help, helpId, children }: { label: string; value: string; help: string; helpId: string; children: ReactNode }) {
+  return (
+    <div className="dial">
+      <div className="dial-head"><span className="dial-label">{label}</span><span className="dial-value val">{value}</span></div>
+      {children}
+      <div className="dial-help" id={helpId}>{help}</div>
+    </div>
+  );
+}
+
+/** The steps of a dial as a group of radio buttons. A step that is not exact and nearest takes the class near, and none is checked. */
+function ShapeSteps({ label, name, steps, checked, near, onPick, describedBy }: { label: string; name?: string; steps: readonly { label: string }[]; checked: number | null; near: number | null; onPick: (i: number) => void; describedBy: string }) {
+  // a group of radio buttons is one Tab stop: the arrow keys move the pick, as in a native group
+  const stop = checked ?? near ?? 0;
+  const refs = useRef<(HTMLButtonElement | null)[]>([]);
+  const move = (e: KbEvent, i: number) => {
+    const d = e.key === "ArrowRight" || e.key === "ArrowDown" ? 1 : e.key === "ArrowLeft" || e.key === "ArrowUp" ? -1 : 0;
+    if (!d) return;
+    e.preventDefault();
+    const to = (i + d + steps.length) % steps.length;
+    refs.current[to]?.focus();
+    onPick(to);
+  };
+  return (
+    <div className="steps" role="radiogroup" aria-label={checked === null && name ? `${label}, now ${name}` : label} aria-describedby={describedBy}>
+      {steps.map((s, i) => (
+        <button type="button" key={s.label} ref={(el) => { refs.current[i] = el; }} role="radio" aria-checked={i === checked} aria-describedby={describedBy} tabIndex={i === stop ? 0 : -1} className={`dial-step ${i === checked ? "on" : ""} ${i === near ? "near" : ""}`} onClick={() => onPick(i)} onKeyDown={(e) => move(e, i)}>{s.label}</button>
+      ))}
+    </div>
+  );
+}
+
+/** A number of uses in words, such as "twice" or "3 times". */
+const timesWord = (n: number) => (n === 2 ? "twice" : `${["zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine"][n] ?? n} times`);
+/** The sentence before the first use of a part that a pattern names more than once, which explains the words use 1 of 2 and use 2 of 2 of its steps. */
+function usesSentence(part: Part, words: string[]): string {
+  const title = part.title.charAt(0).toLowerCase() + part.title.slice(1);
+  const list = words.length > 1 ? `${words.slice(0, -1).join(", ")} and ${words[words.length - 1]}` : words[0];
+  return `This pattern ${part.kind === "hiding" ? `passes the funds through ${title}` : `names ${title}`} ${timesWord(words.length)}, so the steps of each ${part.kind === "hiding" ? "pass" : "use"} carry the words ${list}.`;
+}
+
+/** The words for a size in the help of the dial, such as "a quarter of" or "4 times". */
+const sizePrefix = (size: number) => (Math.abs(size - 0.25) < 1e-6 ? "a quarter of" : Math.abs(size - 0.5) < 1e-6 ? "half" : timesText(size));
+/** The words for the length of a wait at a speed, such as "4 times as long" for a quarter of the speed. */
+const speedLength = (speed: number) => (Math.abs(speed - 2) < 1e-6 ? "half as long" : Math.abs(speed - 4) < 1e-6 ? "a quarter as long" : `${timesText(1 / speed)} as long`);
+
+/** The 4 dials of a library pattern and the state of the data set, with one button that makes the data again. */
+function ShapeSettings({ id, cur, config, range, typical, ds, making, stage, cap }: { id: string; cur: LibrarySetting; config: GenConfig; range: [number, number] | null; typical: CaseView | null; ds: Dataset | null; making: boolean; stage: string; cap: string | null }) {
+  const entry = labelsFile.patterns.find((p) => p.id === id);
+  const short = entry?.short ?? id;
+  const ends = (entry?.allowed ?? []) as string[];
+  const rateText = libraryRateText(cur.per1k);
+  const planned = libraryCaseCount(cur.per1k, config.accounts);
+  const howMany = !cur.on ? "The pattern is off, so the next data set holds no case of it." : cur.per1k > 0 ? `The generator plans ${plural(planned, "case")} of this pattern for a bank of ${fmtInt(config.accounts)} accounts.` : "The rate is 0, so the next data set holds no case of this pattern.";
+  const sizeHelp = range
+    ? `A case moves between ${fmtGbp(range[0] * cur.size)} and ${fmtGbp(range[1] * cur.size)} at this size${cap ? `, and at most ${cap}` : ""}.`
+    : Math.abs(cur.size - 1) < 1e-6 ? "Each amount of a case is the amount that the files give." : `Each amount of a case is ${sizePrefix(cur.size)} the amount that the files give.`;
+  const minutes = typical ? caseMinutes(typical) : 0;
+  const speedHelp = [
+    Math.abs(cur.speed - 1) < 1e-6 ? "Each wait between payments is as long as the files give it." : `Each wait between payments is ${speedLength(cur.speed)}, so the case runs at ${sizePrefix(cur.speed)} the speed.`,
+    `The typical case lasts ${lengthText(minutes)}, and the data set covers ${plural(config.days, "day")}.`,
+    minutes > config.days * 1440 ? "A case that runs past the last day of the data set loses its later payments." : "",
+  ].filter(Boolean).join(" ");
+  const endHelp = ends.length > 1
+    ? `The bank's records hold the payments of ${END_SENTENCE[cur.bankSees]}.${cur.bankSees === "both" ? " Each case then has 2 planted patterns with one case number." : ""}`
+    : "The files of this pattern allow this end only.";
+  const sizeAt = nearestShape(cur.size), speedAt = nearestShape(cur.speed);
+  const endSteps = END_STEPS.filter((e) => ends.includes(e.value));
+  const endIndex = endSteps.findIndex((e) => e.value === cur.bankSees);
+  const made = ds ? ownSetting(ds.config, id) : null;
+  // a pattern that is off in the settings and in the data set makes no difference to the next data set, whatever its other settings are
+  const same = made !== null && ((!made.on && !cur.on) || (["on", "per1k", "size", "speed", "bankSees"] as const).every((k) => made[k] === cur[k]));
+  const stateText = !ds ? "No data set is on this page yet." : same ? "The data set on this page was made with these settings." : "The data set on this page was made with other settings for this pattern.";
+  // the setting that the reader changed last, which the region for a screen reader describes; null says nothing
+  const [changed, setChanged] = useState<"many" | "size" | "speed" | "end" | "made" | null>(null);
+  const stateRef = useRef<HTMLParagraphElement>(null);
+  const wasMaking = useRef(false), wantFocus = useRef(false);
+  useEffect(() => {
+    if (making) { wasMaking.current = true; return; }
+    if (!wasMaking.current) return;
+    wasMaking.current = false;
+    if (wantFocus.current) setChanged("made");
+    const at = document.activeElement;
+    if (wantFocus.current && (!at || at === document.body || at.tagName === "BUTTON" || at === stateRef.current)) stateRef.current?.focus();
+    wantFocus.current = false;
+  }, [making]);
+  const typicalText = typical ? `The typical case in section 5 now has ${plural(typical.rows.length, "payment")}, moves ${fmtGbp(typical.value)} and lasts ${lengthText(minutes)}.` : "";
+  const sizeValue = sizeAt.exact ? SHAPE_STEPS[sizeAt.index].label : timesText(cur.size);
+  const speedValue = speedAt.exact ? SHAPE_STEPS[speedAt.index].label : timesText(cur.speed);
+  const offText = `The pattern is off, so the next data set holds no case of it. ${stateText}`;
+  const said = making ? `Making the data (${stage})` : changed === null ? ""
+    : changed === "made" ? stateText
+    : !cur.on && changed !== "many" ? `${changed === "size" ? `How large, ${sizeValue}` : changed === "speed" ? `How fast, ${speedValue}` : `The bank sees ${END_STEPS.find((e) => e.value === cur.bankSees)?.label ?? cur.bankSees}`}. ${offText}`
+    : changed === "many" ? `${short} switch, now ${cur.on ? "on" : "off"}. ${howMany} ${stateText}`
+    : changed === "size" ? `How large, ${sizeValue}. ${sizeHelp} ${typicalText} ${stateText}`
+    : changed === "speed" ? `How fast, ${speedValue}. ${speedHelp} ${typicalText} ${stateText}`
+    : `The bank sees ${END_STEPS.find((e) => e.value === cur.bankSees)?.label ?? cur.bankSees}. ${endHelp} ${typicalText} ${stateText}`;
+  const make = () => { wantFocus.current = true; void genActions.generate(); };
+  return (
+    <>
+      <div className="shape-grid">
+        <ShapeDial label="How many" value={cur.on ? rateText : "Off"} help={howMany} helpId="shape-many-help">
+          <div className="shape-rate">
+            <Toggle on={cur.on} onChange={(v) => { setChanged("many"); genActions.setLibrary(id, { on: v }); }} label={`${short} switch`} describedBy="shape-many-help" />
+            <Slider value={cur.per1k} min={0} max={5} step={0.1} onChange={(v) => { setChanged(null); genActions.setLibrary(id, { per1k: v }); }} label={`${short} rate`} disabled={!cur.on} valueText={rateText} describedBy="shape-many-help" />
+          </div>
+        </ShapeDial>
+        <ShapeDial label="How large" value={sizeValue} help={sizeHelp} helpId="shape-size-help">
+          <ShapeSteps label="How large" name={timesText(cur.size)} steps={SHAPE_STEPS} checked={sizeAt.exact ? sizeAt.index : null} near={sizeAt.exact ? null : sizeAt.index} onPick={(i) => { setChanged("size"); genActions.setLibrary(id, { size: SHAPE_STEPS[i].value }); }} describedBy="shape-size-help" />
+        </ShapeDial>
+        <ShapeDial label="How fast" value={speedValue} help={speedHelp} helpId="shape-speed-help">
+          <ShapeSteps label="How fast" name={timesText(cur.speed)} steps={SHAPE_STEPS} checked={speedAt.exact ? speedAt.index : null} near={speedAt.exact ? null : speedAt.index} onPick={(i) => { setChanged("speed"); genActions.setLibrary(id, { speed: SHAPE_STEPS[i].value }); }} describedBy="shape-speed-help" />
+        </ShapeDial>
+        <ShapeDial label="The bank sees" value={END_STEPS.find((e) => e.value === cur.bankSees)?.label ?? cur.bankSees} help={endHelp} helpId="shape-end-help">
+          {ends.length > 1 && <ShapeSteps label="The bank sees" steps={endSteps} checked={endIndex} near={null} onPick={(i) => { setChanged("end"); genActions.setLibrary(id, { bankSees: endSteps[i].value }); }} describedBy="shape-end-help" />}
+        </ShapeDial>
+      </div>
+      <div className="sr-only" role="status" aria-live="polite" aria-atomic="true">{said}</div>
+      <p style={{ margin: "12px 0 0" }}><a className="link" href="#typical" onClick={(e) => { e.preventDefault(); document.getElementById("typical")?.scrollIntoView({ behavior: "smooth", block: "start" }); }}>See the typical case in section 5</a></p>
+      <p className="shape-state" ref={stateRef} tabIndex={-1}>
+        {stateText}
+        {!ds && <> <Button kind="primary" disabled={making} onClick={make}>Make the data</Button></>}
+        {ds && !same && <> <Button kind="primary" disabled={making} onClick={make}>Make data with new settings</Button></>}
+      </p>
+      {making && <Working label={`Making the data (${stage})`} status={false} />}
+    </>
+  );
+}
+
 /** The page of one library pattern: what it is, its value, its steps from the files, a typical case, the cases of the data set and its settings. */
 function LibraryPatternPage({ id, ds, config, making, stage, caseParam }: { id: string; ds: Dataset | null; config: GenConfig; making: boolean; stage: string; caseParam: string | null }) {
   const pattern = patternOf(id) as Pattern;
   const source = PARTS.get(pattern.parts.source);
-  const partList = [pattern.parts.source, ...pattern.parts.hiding, pattern.parts.cashOut].map((x) => PARTS.get(x)).filter((x): x is Part => !!x);
-  const typical = useMemo(() => typicalCaseView(id), [id]);
+  const useList = usesOf(pattern).map((use) => ({ use, part: PARTS.get(partIdOf(use)) })).filter((x): x is { use: string; part: Part } => !!x.part);
+  const partList = useList.map((x) => x.part);
+  const useWords = useLabelsOf(id);
+  const cur = ownSetting(config, id);
+  const typical = useMemo(() => typicalCaseView(id, { size: cur.size, speed: cur.speed, bankSees: cur.bankSees }), [id, cur.size, cur.speed, cur.bankSees]);
   const typicalCal = useMemo(() => makeCalendar(1, 90), []);
   const typicalSteps = useMemo(() => new Set((typical?.rows ?? []).map((r) => r.step)).size, [typical]);
   const [typicalShown, setTypicalShown] = useState<number | null>(typicalSteps > 1 ? 1 : null);
@@ -266,8 +420,14 @@ function LibraryPatternPage({ id, ds, config, making, stage, caseParam }: { id: 
   const skipped = ds?.library?.skipped.filter((x) => x.pattern === id) ?? [];
   const capped = !!ds?.library?.capped.includes(id);
   const set = settingOf(config, id);
+  const made = ds ? ownSetting(ds.config, id) : cur;
   const range = pattern.value ?? (source && source.kind === "source" && "log" in source.value ? source.value : null);
-  const valueBasis = pattern.value?.basis ?? (source && source.kind === "source" ? source.value.basis : null);
+  // a source part that states capByBalance limits a case to that share of what its paying customer holds on the first day of the data set, with the arranged overdraft (rule 6 of section 6 of PATTERN_FORMAT.md)
+  const capShare = !pattern.value && source && source.kind === "source" && "capByBalance" in source.value ? source.value.capByBalance ?? null : null;
+  const cap = capShare !== null && source ? { share: `${Math.round(capShare * 100)}%`, who: source.parties.find((q) => q.kind === "customer")?.label ?? "the paying customer" } : null;
+  const basisOf = pattern.value?.basis ?? (source && source.kind === "source" ? source.value.basis : null);
+  // the section states the limit once, in its own sentence, so the older sentence of the note that states it again is left out
+  const valueBasis = basisOf && cap ? { ...basisOf, note: basisOf.note.replace(/\s*A case takes at most \d+% of what [^.]*\./, "") } : basisOf;
   const allReferences = useMemo(() => {
     return mergeReferences([pattern.references, ...partList.map((p) => p.references)]);
   }, [pattern, partList]);
@@ -277,12 +437,12 @@ function LibraryPatternPage({ id, ds, config, making, stage, caseParam }: { id: 
     { id: "what", n: "1", title: "What it is" },
     { id: "value", n: "2", title: "The value of a case" },
     { id: "steps", n: "3", title: "The steps" },
-    { id: "typical", n: "4", title: "A typical case" },
-    { id: "cases", n: "5", title: "Cases in this data set" },
-    { id: "settings", n: "6", title: "Its settings" },
+    { id: "shape", n: "4", title: "Shape it" },
+    { id: "typical", n: "5", title: "A typical case" },
+    { id: "cases", n: "6", title: "Cases in this data set" },
   ];
   const waiting = making
-    ? <Working label={`Making the data (${stage})`} />
+    ? <Working label={`Making the data (${stage})`} status={false} />
     : !ds
       ? <p>Make the data to see the cases of this pattern. <a className="link" href="#/data">Make data</a></p>
       : null;
@@ -300,7 +460,7 @@ function LibraryPatternPage({ id, ds, config, making, stage, caseParam }: { id: 
           <table className="tbl">
             <tbody>
               <tr><th scope="row">Status</th><td>{STATUS_SENTENCE[pattern.status as (typeof STATUS_ORDER)[number]] ?? capital(pattern.status)}</td></tr>
-              <tr><th scope="row">References</th><td>{allReferences.map((r) => <div key={r.id}>{sourceText(r.id, r.pages)}</div>)}</td></tr>
+              <tr><th scope="row">References</th><td>{allReferences.map((r) => <div key={r.id}>{r.note ? `${sourceText(r.id, r.pages)}. ${stop(r.note)}` : sourceText(r.id, r.pages)}</div>)}</td></tr>
             </tbody>
           </table>
         </div>
@@ -308,21 +468,22 @@ function LibraryPatternPage({ id, ds, config, making, stage, caseParam }: { id: 
       </Section>
       <Section id="value" n="2" title="The value of a case">
         {range && "log" in range
-          ? <p style={{ marginTop: 0 }}>A case moves between {fmtGbp(range.log[0])} and {fmtGbp(range.log[1])}.{valueBasis ? <> <BasisText what="This range" basis={valueBasis} /></> : null}</p>
+          ? <p style={{ marginTop: 0 }}>A case moves between {fmtGbp(range.log[0])} and {fmtGbp(range.log[1])}.{cap ? ` A case takes at most ${cap.share} of what ${cap.who} holds on the first day of the data set, counting any arranged overdraft. An arranged overdraft is credit that the bank has agreed to lend the customer. Because of this limit, a case in a data set can move less than this range.` : null}{valueBasis ? <> <BasisText what="This range" basis={valueBasis} /></> : null}</p>
           : <p style={{ marginTop: 0 }}>The value of a case is the sum of the amounts that its own steps move.{valueBasis ? <> <BasisText what="This sum" basis={valueBasis} /></> : null}</p>}
       </Section>
       <Section id="steps" n="3" title="The steps" sub="A part is one piece of the method, such as the source, a way of hiding the money or the cash-out. The steps run in the order of the parts. Each step shows what happens, how the money moves and where the figures come from. Between 2 parts the funds move on in one payment, which the ledger shows as a step with the title Hand-off.">
-        {partList.map((part) => (
-          <div key={part.id} style={{ marginBottom: 18 }}>
-            <h3 className="step-title" style={{ margin: "0 0 6px" }}>{PART_WORD[part.kind]}. {part.title}</h3>
+        {useList.map(({ use, part }) => (
+          <div key={use} style={{ marginBottom: 18 }}>
+            {useWords[use]?.startsWith("use 1 of ") && <p style={{ marginTop: 0 }}>{usesSentence(part, useList.filter((x) => x.part.id === part.id).map((x) => useWords[x.use]))}</p>}
+            <h3 className="step-title" style={{ margin: "0 0 6px" }}>{PART_WORD[part.kind]}. {part.title}{useWords[use] ? ` (${useWords[use]})` : ""}</h3>
             <ol className="stepper">
               {part.steps.map((s) => {
                 number++;
                 return (
-                  <li key={s.id} className="step">
+                  <li key={`${use}.${s.id}`} className="step">
                     <div className="step-n val">{number}</div>
                     <div className="step-body">
-                      <div className="step-title">{stepTitle(`${part.id}.${s.id}`)}</div>
+                      <div className="step-title">{stepTitle(`${use}.${s.id}`)}</div>
                       <div className="step-text">{stop(capital(s.say))}</div>
                       <div className="step-text">{`It moves through ${railWords(s, part)}.`}{s.need === "supporting" ? " A case may leave this step out." : ""}</div>
                       <div className="step-text"><BasisText what="This step" basis={s.basis} /></div>
@@ -340,8 +501,13 @@ function LibraryPatternPage({ id, ds, config, making, stage, caseParam }: { id: 
           </div>
         ))}
       </Section>
-      <Section id="typical" n="4" title="A typical case" sub={typical ? `A case is one planted run of the pattern. This typical case has ${plural(typical.rows.length, "payment")} between ${plural(typical.parties.length, "party", "parties")} and moves ${fmtGbp(typical.value)}.` : undefined}>
-        <p style={{ marginTop: 0 }}>This case is drawn from the files with a fixed seed number. It is not in the data set. It is drawn with the pattern's own settings, in which the bank sees {END_SENTENCE[pattern.bankSees]}.</p>
+      <Section id="shape" n="4" title="Shape it" sub="The 4 settings below change this pattern in the next data set that you make. The typical case in section 5 follows the size, the speed and the end at once.">
+        <ShapeSettings id={id} cur={cur} config={config} range={range && "log" in range ? range.log : null} typical={typical} ds={ds} making={making} stage={stage} cap={cap && `${cap.share} of what ${cap.who} holds`} />
+        <p>Switching a library pattern on also changes some ordinary transactions of the data set from about the day of its first case. A result with the pattern therefore differs from a result without it in more than the cases of the pattern. <a className="link" href="#/how">Section 2.8 of the method gives the figures</a>.</p>
+        <p>The 6 difficulty settings of the bank do not change this pattern, apart from the share of accounts in more than one pattern.</p>
+      </Section>
+      <Section id="typical" n="5" title="A typical case" sub={typical ? `A case is one planted run of the pattern. This typical case has ${plural(typical.rows.length, "payment")} between ${plural(typical.parties.length, "party", "parties")}, moves ${fmtGbp(typical.value)} and lasts ${lengthText(caseMinutes(typical))}.${cap ? " The typical case is priced before that limit, so the cases of a data set are often smaller." : ""}` : undefined}>
+        <p style={{ marginTop: 0 }}>This case is drawn from the files with a fixed seed number. It is not in the data set. It follows the size, the speed and the end of section 4.</p>
         {typical && (
           <>
             <StepControls steps={typicalSteps} shown={typicalShown} onShown={setTypicalShown} />
@@ -349,15 +515,16 @@ function LibraryPatternPage({ id, ds, config, making, stage, caseParam }: { id: 
           </>
         )}
       </Section>
-      <Section id="cases" n="5" title="Cases in this data set">
+      <Section id="cases" n="6" title="Cases in this data set">
         {waiting ?? (
           <>
-            {own.length === 0 && skipped.length === 0 && <p style={{ marginTop: 0 }}>This data set holds no case of this pattern.{set.on ? "" : " Switch the pattern on under Adjust the bank on the Make data page and make the data."} <a className="link" href="#/data">Make data</a></p>}
+            {own.length === 0 && skipped.length === 0 && <p style={{ marginTop: 0 }}>This data set holds no case of this pattern.{set.on ? "" : " Switch the pattern on in section 4 and make the data."} <a className="link" href="#/data">Make data</a></p>}
             {own.length > 0 && (
               <>
                 <p style={{ marginTop: 0 }}>{plural(own.length, "case")} of this pattern {own.length === 1 ? "is" : "are"} in this data set.</p>
+                <p>The data set was made with this pattern at {made.size === 1 ? "its own size" : `${sizePrefix(made.size)} its size`} and {made.speed === 1 ? "its own speed" : `${sizePrefix(made.speed)} its speed`}, and the bank sees {END_SENTENCE[made.bankSees].split(",")[0]}.</p>
                 <p>{plural(reduced, "case")} {verb(reduced)} reduced. In a reduced case the bank wrote at least one payment for less than its planned amount. This happens where a customer held less on the day of a payment than the plan allowed for.</p>
-                <p>{plural(cutShort, "case")} {verb(cutShort)} cut short. A cut short case has a main step with no payment, because the data set ended first. A payment above the Faster Payments limit goes by CHAPS and waits for a working day.</p>
+                <p>{plural(cutShort, "case")} {verb(cutShort)} cut short. A cut short case has a main step with no payment, because the data set ended first. A payment above the Faster Payments limit goes by CHAPS and waits for a working day, and that wait moves the later payments of the case, so that more of them can fall after the last day.</p>
                 {bankLegs > 0 && <p>{fmtPct(inFull / bankLegs)} of the payments of this pattern in the bank's records were written at their planned amount.</p>}
               </>
             )}
@@ -365,11 +532,11 @@ function LibraryPatternPage({ id, ds, config, making, stage, caseParam }: { id: 
               const n = x.cases;
               if (x.reason === "no-transaction") return <p key={x.reason}>{plural(n, "case")} {verb(n)} removed, because the bank wrote none of their payments.</p>;
               if (x.reason === "no-rail") return <p key={x.reason + x.need}>{plural(n, "case")} {verb(n)} not planted. A step of the pattern needs {RAIL_NEED[x.need ?? ""] ?? "a rail"}, which this bank does not offer.</p>;
-              const partId = (x.party ?? "").split(".")[0];
-              const label = PARTS.get(partId)?.parties.find((q) => `${partId}.${q.id}` === x.party)?.label ?? "A party";
+              const useId = (x.party ?? "").split(".")[0];
+              const label = PARTS.get(partIdOf(useId))?.parties.find((q) => `${useId}.${q.id}` === x.party)?.label ?? "A party";
               return <p key={x.reason + x.party}>{plural(n, "case")} {verb(n)} not planted. {capital(label)} needs {(x.need ?? "").replace("among the quarter that holds the most", "with a large balance")}, and the bank had no such account free.</p>;
             })}
-            {capped && <p>The generator stopped planting this pattern at 20,000 rows.</p>}
+            {capped && <p>The generator stopped planting this pattern at {fmtInt(LIBRARY_ROW_CAP)} rows.</p>}
             {own.length > 0 && view && chosen && cal && (
               <>
                 <div className="field" style={{ marginBottom: 12 }}>
@@ -378,17 +545,13 @@ function LibraryPatternPage({ id, ds, config, making, stage, caseParam }: { id: 
                     {own.map((c) => <option key={c.caseId} value={c.caseId}>{option(c)}</option>)}
                   </select>
                 </div>
+                <p>Case {chosen.caseId} is planted as {view.keys.length === 1 ? "1 pattern" : `${view.keys.length} patterns with one case number`}: {view.keys.map((k) => patternLabel(k)).join(" and ")}.</p>
                 <StepControls steps={stepCount} shown={shown} onShown={(n) => setKept({ ds, id: chosen.caseId, n })} />
                 <FlowLedger key={chosen.caseId} view={view} shown={shown} cal={cal} />
               </>
             )}
           </>
         )}
-      </Section>
-      <Section id="settings" n="6" title="Its settings">
-        <p style={{ marginTop: 0 }}>This pattern is switched {set.on ? "on" : "off"}. Its rate is {set.per1k} cases for each 1,000 accounts. <a className="link" href="#/data">Change the switch and the rate on the Make data page</a>. The bank sees {END_SENTENCE[set.bankSees]}. This release fixes the end that the bank sees, and a later release adds a control for it.</p>
-        <p>Switching a library pattern on also changes some ordinary transactions of the data set from about the day of its first case. A result with the pattern therefore differs from a result without it in more than the cases of the pattern. <a className="link" href="#/how">Section 2.8 of the method gives the figures</a>.</p>
-        <p>The 6 difficulty settings of the bank do not change this pattern, apart from the share of accounts in more than one pattern.</p>
       </Section>
       <NextStep href="#/data" title="Make data" line="Switch the pattern on or off, and make the data again." />
       </div>

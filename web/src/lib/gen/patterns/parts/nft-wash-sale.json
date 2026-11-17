@@ -1,0 +1,162 @@
+{
+  "schema": "touchstone-part/1",
+  "id": "nft-wash-sale",
+  "kind": "hiding",
+  "status": "tested",
+  "title": "A wash sale of a token between linked wallets",
+  "short": "Wash sale",
+  "summary": "The launderer's own wallets trade one token at rising prices over several days. An outside buyer then pays the last price into a new wallet.",
+  "references": [
+    {
+      "id": "S57",
+      "pages": "31"
+    }
+  ],
+  "routes": [
+    {
+      "from": "ETH@ethereum",
+      "to": "same"
+    }
+  ],
+  "entry": "holder",
+  "exit": "fresh",
+  "hides": {
+    "chance": 0.5,
+    "basis": {
+      "kind": "assumed",
+      "note": "No source read for this design publishes how often a screening tool loses the link at this method. The value is an assumption and means that the trail is lost in 50 cases in 100."
+    }
+  },
+  "parties": [
+    {
+      "id": "holder",
+      "kind": "wallet",
+      "label": "the wallet that holds the funds",
+      "reuse": "case"
+    },
+    {
+      "id": "linked",
+      "kind": "wallet",
+      "label": "a wallet linked to the launderer",
+      "reuse": "case"
+    },
+    {
+      "id": "marketplace",
+      "kind": "market",
+      "label": "a marketplace for the token",
+      "reuse": "case"
+    },
+    {
+      "id": "fresh",
+      "kind": "wallet",
+      "label": "a new wallet that receives the last price",
+      "reuse": "case"
+    }
+  ],
+  "steps": [
+    {
+      "id": "trades",
+      "kind": "move",
+      "say": "The linked wallets trade the token 3 to 6 times at rising prices.",
+      "from": "holder",
+      "to": "linked",
+      "via": "chain",
+      "asset": "in",
+      "amount": {
+        "of": "held",
+        "share": [
+          1,
+          1
+        ]
+      },
+      "split": "rising",
+      "times": [
+        3,
+        6
+      ],
+      "start": {
+        "after": "entry",
+        "minutes": [
+          10,
+          360
+        ]
+      },
+      "between": {
+        "hours": [
+          6,
+          36
+        ]
+      },
+      "need": "required",
+      "varies": "rotating",
+      "basis": {
+        "kind": "reported",
+        "ref": "S57",
+        "pages": "31",
+        "note": "The report says that trades among linked wallets raise the price. The count of 3 to 6 trades, the waits and the rising weights are assumed. The prices are shown as the amounts of the legs."
+      }
+    },
+    {
+      "id": "listing",
+      "kind": "move",
+      "say": "The linked wallet lists the token for sale at the marketplace.",
+      "from": "linked",
+      "to": "marketplace",
+      "via": "chain",
+      "asset": "in",
+      "amount": {
+        "of": "held",
+        "share": [
+          1,
+          1
+        ]
+      },
+      "start": {
+        "after": "trades",
+        "hours": [
+          1,
+          12
+        ]
+      },
+      "need": "required",
+      "varies": "rotating",
+      "basis": {
+        "kind": "reported",
+        "ref": "S57",
+        "pages": "31",
+        "note": "The report describes a sale to an outside buyer. The wait is assumed."
+      }
+    },
+    {
+      "id": "sale",
+      "kind": "move",
+      "say": "An outside buyer pays the last price, which reaches the new wallet.",
+      "from": "marketplace",
+      "to": "fresh",
+      "via": "chain",
+      "asset": "in",
+      "amount": {
+        "of": "held",
+        "share": [
+          1,
+          1
+        ]
+      },
+      "start": {
+        "after": "listing",
+        "hours": [
+          1,
+          24
+        ]
+      },
+      "need": "required",
+      "varies": "ephemeral",
+      "basis": {
+        "kind": "reported",
+        "ref": "S57",
+        "pages": "31",
+        "note": "The report says that an outside buyer overpays. The buyer's money is shown as the funds that are already in the case, so the case holds no gain from the sale. The wait is assumed."
+      }
+    }
+  ]
+}

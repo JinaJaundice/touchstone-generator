@@ -5,6 +5,7 @@
 import { LEG_ROLE } from "./dictionary";
 import { PARTS, patternOf } from "./patterns/index";
 import { typicalCase } from "./patterns/expand";
+import { partIdOf, usesOf } from "./patterns/types";
 import labelsFile from "./patterns/labels.json";
 import { patternLabel, type AccountRole, type Dataset, type LibraryCase, type Family, type PatternInstance, type Tx } from "./types";
 
@@ -13,12 +14,13 @@ export interface FlowParty {
   key: string;      // "a" and the account id for an account of the bank, "x:" and a reference for an outside party
   group: string;    // the parties that may share a column: "a:" and the role, or "x:" and the kind
   label: string;    // the customer id of an account, or the generic label of an outside party
+  partLabel: string | null;   // the label of the party in its part file, or null for a party of a built-in case
   kind: string;     // "customer", "merchant", "account-elsewhere", "payer", "wallet", "cash-in", "cash-out" or "outside"
   role: AccountRole | null;
   family: Family | null;   // the family of the planted pattern that gives the account its role
   account: number | null;
   address: string | null;
-  part: string | null;     // null for a case of a built-in pattern
+  part: string | null;     // the id of the use of the part, or null for a case of a built-in pattern
   end: "source" | "hiding" | "cash-out" | null;   // null for a case of a built-in pattern
 }
 /** One payment of a case, from one party to another. */
@@ -31,7 +33,10 @@ export interface FlowLeg {
 /** The line of a case in a list of cases. */
 export interface CaseSummary { caseId: number; title: string; keys: string[]; families: Family[]; value: number; legs: number; startDay: number }
 /** A whole case: its summary, its parties and its legs. */
-export interface CaseView extends CaseSummary { parties: FlowParty[]; rows: FlowLeg[]; endDay: number }
+export interface CaseView extends CaseSummary {
+  parties: FlowParty[]; rows: FlowLeg[]; endDay: number;
+  useLabels: Record<string, string>;   // the words of each use of a part that the pattern names more than once, by the id of the use; empty for any other case
+}
 /** One column of the drawing: a party, or a group of parties that share a column. */
 export interface FlowColumn {
   key: string;       // the group, or the key of a party that has a column of its own
@@ -158,7 +163,7 @@ export function caseView(ds: Dataset, caseId: number): CaseView | null {
         }
         parties.set(key, {
           key, group: "a:" + (role ?? "other"), label: ds.accounts[n]?.customerId ?? String(n), kind: "customer",
-          role, family, account: n, address: null, part: null, end: null,
+          role, family, account: n, address: null, part: null, end: null, partLabel: null,
         });
       }
       return key;
@@ -173,7 +178,7 @@ export function caseView(ds: Dataset, caseId: number): CaseView | null {
     if (!parties.has(key)) {
       parties.set(key, {
         key, group: "x:" + kind, label, kind, role: null, family: null, account: null,
-        address: kind === "wallet" ? t.wallet : null, part: null, end: null,
+        address: kind === "wallet" ? t.wallet : null, part: null, end: null, partLabel: null,
       });
     }
     return key;
@@ -192,7 +197,7 @@ export function caseView(ds: Dataset, caseId: number): CaseView | null {
   }
 
   const summary = summarise(caseId, planted, rows.length, txs.length ? txs[0].day : null);
-  return { ...summary, parties: [...parties.values()], rows, endDay: rows.length ? rows[rows.length - 1].day : summary.startDay };
+  return { ...summary, parties: [...parties.values()], rows, endDay: rows.length ? rows[rows.length - 1].day : summary.startDay, useLabels: {} };
 }
 
 /** The rail that the transaction log names for a way of paying in a library file. A payment on a chain takes the name of the chain. */
@@ -206,7 +211,7 @@ function libraryRail(via: string, chain: string | null): string {
 
 /**
  * A library case as parties and payments, from the rows of `ds.parties` and `ds.caseLegs` in the order of `seq`. The step of a
- * payment is its part id, a full stop and its step id. A payment that the bank did not write has the amount 0 and keeps its
+ * payment is the id of its use, a full stop and its step id. A payment that the bank did not write has the amount 0 and keeps its
  * planned amount. The role of the party that an account fills is its role in the planted pattern of its end.
  */
 function libraryView(ds: Dataset, entry: LibraryCase, planted: PatternInstance[]): CaseView {
@@ -222,7 +227,7 @@ function libraryView(ds: Dataset, entry: LibraryCase, planted: PatternInstance[]
     }
     parties.push({
       key: p.key, group: p.group, label: p.account !== null ? ds.accounts[p.account]?.customerId ?? String(p.account) : p.label, kind: p.kind,
-      role, family, account: p.account, address: p.address, part: p.part, end: p.end,
+      role, family, account: p.account, address: p.address, part: p.part, end: p.end, partLabel: p.label,
     });
   }
   const legs = ds.caseLegs.filter((l) => l.caseId === caseId).sort((a, b) => a.seq - b.seq);
@@ -230,7 +235,29 @@ function libraryView(ds: Dataset, entry: LibraryCase, planted: PatternInstance[]
     seq: i, step: `${l.part}.${l.step}`, say: l.say, day: l.day, minute: l.minute, from: l.from, to: l.to, how: l.via, rail: libraryRail(l.via, l.chain), asset: l.asset,
     amount: l.amount, planned: l.planned, seenBy: l.seenBy, tx: l.tx, declined: false,
   }));
-  return { ...summariseLibrary(entry, planted, rows.length), parties, rows, endDay: entry.endDay };
+  return { ...summariseLibrary(entry, planted, rows.length), parties, rows, endDay: entry.endDay, useLabels: useLabelsOf(entry.pattern) };
+}
+
+/**
+ * The words that tell the uses of a part apart, for each part that a pattern names more than once. The key of an entry is the
+ * id of the use and its value is "use <n> of <m>", where m is the number of uses of that part in the pattern. The object is empty for a
+ * pattern that names no part twice and for an id that the library does not hold.
+ */
+export function useLabelsOf(patternId: string): Record<string, string> {
+  const pattern = patternOf(patternId);
+  if (!pattern) return {};
+  const uses = usesOf(pattern);
+  const total = new Map<string, number>();
+  for (const u of uses) total.set(partIdOf(u), (total.get(partIdOf(u)) ?? 0) + 1);
+  const out: Record<string, string> = {};
+  const seen = new Map<string, number>();
+  for (const u of uses) {
+    const part = partIdOf(u);
+    const n = (seen.get(part) ?? 0) + 1;
+    seen.set(part, n);
+    if (total.get(part)! > 1) out[u] = `use ${n} of ${total.get(part)}`;
+  }
+  return out;
 }
 
 /** The keys of the planted patterns of a library pattern, from labels.json. */
@@ -244,13 +271,14 @@ const TYPICAL_START = 540;
  * The typical case of a library pattern in the form that `caseView` gives, so that a page draws it with the ledger of a case
  * of the data set. The case is drawn from the files with a fixed seed number. No account fills a customer party, so each party
  * takes its label from the files. The case number is -1, because the case is not in any data set. Null where no pattern has the id.
+ * The optional settings give the size, the speed and the end that the bank sees. A field that is absent takes the pattern's own value, which is 1 for the size and the speed.
  */
-export function typicalCaseView(patternId: string): CaseView | null {
+export function typicalCaseView(patternId: string, settings?: { size?: number; speed?: number; bankSees?: "source" | "cash-out" | "both" }): CaseView | null {
   const pattern = patternOf(patternId);
   if (!pattern) return null;
-  const priced = typicalCase(pattern, PARTS, { size: 1, speed: 1, bankSees: pattern.bankSees });
+  const priced = typicalCase(pattern, PARTS, { size: settings?.size ?? 1, speed: settings?.speed ?? 1, bankSees: settings?.bankSees ?? pattern.bankSees });
   const parties: FlowParty[] = priced.parties.map((q) => ({
-    key: q.key, group: q.group, label: q.label, kind: q.kind, role: null, family: null, account: null, address: null, part: q.part, end: q.end,
+    key: q.key, group: q.group, label: q.label, kind: q.kind, role: null, family: null, account: null, address: null, part: q.part, end: q.end, partLabel: q.label,
   }));
   const rows: FlowLeg[] = priced.legs.map((l, i) => {
     const at = l.minute + TYPICAL_START;
@@ -262,8 +290,16 @@ export function typicalCaseView(patternId: string): CaseView | null {
   const names = KEYS_OF.get(patternId);
   return {
     caseId: -1, title: pattern.title, keys: names?.keys ?? [], families: names?.families ?? [], value: priced.value, legs: rows.length, startDay: 0,
-    parties, rows, endDay: rows.reduce((m, r) => Math.max(m, r.day), 0),
+    parties, rows, endDay: rows.reduce((m, r) => Math.max(m, r.day), 0), useLabels: useLabelsOf(patternId),
   };
+}
+
+/** The minutes between the first and the last payment of a view, and 0 for a view with fewer than 2 payments. */
+export function caseMinutes(view: CaseView): number {
+  if (view.rows.length < 2) return 0;
+  let lo = Infinity, hi = -Infinity;
+  for (const r of view.rows) { const at = r.day * 1440 + r.minute; if (at < lo) lo = at; if (at > hi) hi = at; }
+  return hi - lo;
 }
 
 /** The first letter of a text as a capital. */
@@ -302,12 +338,13 @@ export function withinLabel(from: FlowParty, to: FlowParty): string {
 }
 
 /**
- * The name that a row gives a party in full. An account is its role and its customer id, such as "Mule account CUST-001077".
+ * The name that a row gives a party in full. An account of a built-in case is its role and its customer id, such as "Mule account CUST-001077".
+ * An account of a library case is the label of its party in the part file with a capital first letter and its customer id, such as "The first mule account CUST-001077".
  * An outside party is its label with a capital first letter, followed by its own name where it has one that differs from the
  * label (a long address is cut to its first 6 and last 4 characters).
  */
 export function partyName(party: FlowParty): string {
-  if (party.account !== null) return `${ROLE_WORD[party.role ?? "other"]} ${party.label}`;
+  if (party.account !== null) return `${party.partLabel !== null ? capital(party.partLabel) : ROLE_WORD[party.role ?? "other"]} ${party.label}`;
   const label = capital(party.label);
   if (party.address === null && party.key === "x:" + party.kind) return label;
   if (party.part !== null && party.address === null && (!party.key.includes("#") || (party.key.endsWith("#1") && (party.kind === "customer" || party.kind === "outside-account")))) return label;
@@ -319,7 +356,7 @@ export function partyName(party: FlowParty): string {
 export const DRAWN_COLUMNS = 8;
 
 /**
- * The columns of the drawing of a case, from left to right, in 5 steps.
+ * The columns of the drawing of a case, from left to right, in 8 steps.
  * Step 1: a party whose group has at most 3 parties has a column of its own. The parties of a larger group of a library
  * case share one column. In a larger group of a built-in case the parties share one column where no leg runs between
  * two of them. Where legs do run between them, each party gets a level (a payee is one level above its payer) and the
@@ -331,7 +368,13 @@ export const DRAWN_COLUMNS = 8;
  * moved to the place directly left of the column that its first leg pays, so that money runs from left to right.
  * Step 4: a case with more than one party and fewer than 2 columns gives every party a column of its own.
  * Step 5: where a case has more than DRAWN_COLUMNS columns, only the parties of the hiding parts of a library case are moved, and they share one
- * column for each part. That column is labelled with the title of the part from its file.
+ * column for each use of a part. That column is labelled with the title of the part from its file.
+ * Steps 6 to 8 run in turn, each only where the case still has more than DRAWN_COLUMNS columns, and they move only the parties of the
+ * source part and the cash-out part of a library case. An account of the bank is a party of the kind customer.
+ * Step 6: the parties of a group of 2 or more share one column, which has the key of the group. A party that is alone in its group keeps its column.
+ * Step 7: where no party of a part is an account of the bank and the part has 2 parties or more, its parties share one column with the key "part:" and the id of the use.
+ * Step 8: in a part that holds an account of the bank, the parties that are no account and pay no account share one column, where there are 2 or more.
+ * Its key is "next:" and the id of the use, and its label is "Where the money goes next".
  */
 export function flowColumns(view: CaseView): FlowColumn[] {
   const byKey = new Map<string, FlowParty>();
@@ -412,9 +455,41 @@ export function flowColumns(view: CaseView): FlowColumn[] {
     keys = order();
   }
 
-  // step 5: more columns than the ledger can draw, so the parties that hide the money share one column for each part
+  // step 5: more columns than the ledger can draw, so the parties that hide the money share one column for each use of a part
   if (keys.length > DRAWN_COLUMNS) {
     for (const p of view.parties) if (p.end === "hiding" && p.part !== null) colOf.set(p.key, "part:" + p.part);
+    keys = order();
+  }
+
+  // The parties of a source part or a cash-out part of a library case, which steps 6 to 8 move
+  const ends = view.parties.filter((p) => p.part !== null && p.end !== "hiding");
+  const isAccount = (p: FlowParty) => p.kind === "customer";
+  const endsOf = new Map<string, FlowParty[]>();
+  for (const p of ends) { const l = endsOf.get(p.part as string); if (l) l.push(p); else endsOf.set(p.part as string, [p]); }
+
+  // step 6: still too many columns, so the parties of a group of 2 or more share one column
+  if (keys.length > DRAWN_COLUMNS) {
+    const byGroup = new Map<string, FlowParty[]>();
+    for (const p of ends) { const l = byGroup.get(p.group); if (l) l.push(p); else byGroup.set(p.group, [p]); }
+    for (const [group, list] of byGroup) if (list.length >= 2) for (const p of list) colOf.set(p.key, group);
+    keys = order();
+  }
+
+  // step 7: still too many columns, so the parties of a part with no account of the bank share one column
+  if (keys.length > DRAWN_COLUMNS) {
+    for (const [part, list] of endsOf) if (list.length >= 2 && !list.some(isAccount)) for (const p of list) colOf.set(p.key, "part:" + part);
+    keys = order();
+  }
+
+  // step 8: still too many columns, so the parties that the accounts of a part pay share one column
+  if (keys.length > DRAWN_COLUMNS) {
+    const paysAccount = new Set<string>();
+    for (const r of view.rows) { const to = byKey.get(r.to); if (to && isAccount(to) && r.from !== r.to) paysAccount.add(r.from); }
+    for (const [part, list] of endsOf) {
+      if (!list.some(isAccount)) continue;
+      const next = list.filter((p) => !isAccount(p) && !paysAccount.has(p.key));
+      if (next.length >= 2) for (const p of next) colOf.set(p.key, "next:" + part);
+    }
     keys = order();
   }
 
@@ -428,18 +503,23 @@ export function flowColumns(view: CaseView): FlowColumn[] {
     const n = members.length;
     let label: string, detail: string;
     if (key.startsWith("part:")) {
-      label = PARTS.get(key.slice(5))?.title ?? "A way of hiding the money";
+      label = PARTS.get(partIdOf(key.slice(5)))?.title ?? "A way of hiding the money";
+      detail = `${n} parties`;
+    } else if (key.startsWith("next:")) {
+      label = "Where the money goes next";
       detail = `${n} parties`;
     } else if (first.account !== null) {
-      label = ROLE_WORD[first.role ?? "other"];
+      label = first.partLabel !== null ? capital(first.partLabel) : ROLE_WORD[first.role ?? "other"];
       detail = key !== first.key ? `${n} ${n === 1 ? "account" : "accounts"}` : first.label;
     } else {
       label = capital(first.label);
       if (key !== first.key) detail = `${n} ${n === 1 ? "party" : "parties"}`;
-      else if (first.kind === "merchant" || first.kind === "account-elsewhere" || first.kind === "payer") detail = first.key.slice(2);
+      else if (first.kind === "merchant" || first.kind === "account-elsewhere" || first.kind === "payer") detail = first.part !== null ? "" : first.key.slice(2);
       else if (first.kind === "wallet") detail = first.part !== null && first.address === null ? "" : shortRef(first.address ?? first.key.slice(2));
       else detail = "";
     }
+    const words = first.part !== null ? view.useLabels[first.part] : undefined;
+    if (words) detail = detail ? `${detail}, ${words}` : words;
     out.push({ key, label, detail, count: n, parties: members.map((p) => p.key), family: first.family });
   }
   return out;
@@ -464,7 +544,7 @@ const STEP_TITLE: Record<string, string> = {
   "first-party-take": "First-party take",
 };
 
-/** The title of a step: the role as words with a capital first letter, or "Other planted transactions". A step of a library pattern is "<part id>.<step id>" and gives the step id in the same form. */
+/** The title of a step: the role as words with a capital first letter, or "Other planted transactions". A step of a library pattern is "<use id>.<step id>" and gives the step id in the same form. */
 export function stepTitle(step: string): string {
   if (step === "other") return "Other planted transactions";
   const named = STEP_TITLE[step];
@@ -472,6 +552,13 @@ export function stepTitle(step: string): string {
   const dot = step.lastIndexOf(".");
   if (step.slice(dot + 1) === "handoff") return "Hand-off";
   return capital((dot >= 0 ? step.slice(dot + 1) : step).replace(/([a-z])([A-Z])/g, "$1 $2").replace(/-/g, " ").toLowerCase());
+}
+
+/** The title of a step followed, in brackets, by the words of its use where the case names that use twice, such as "Deposit (use 2 of 2)". The use of a step is the text of its key before the last full stop. */
+export function stepHeading(view: CaseView, step: string): string {
+  const dot = step.lastIndexOf(".");
+  const words = dot >= 0 ? view.useLabels[step.slice(0, dot)] : undefined;
+  return words ? `${stepTitle(step)} (${words})` : stepTitle(step);
 }
 
 /** The case to show first: the largest value among those with 4 to 14 legs, or else the case with the fewest legs. Null for an empty list. */
@@ -500,15 +587,15 @@ export function patternCases(cases: CaseSummary[], key: string): CaseSummary[] {
 }
 
 /**
- * The steps of a library pattern as its files give them, in the order of its parts (the source, the hiding parts and the
- * cash-out) and of their steps. A step is "<part id>.<step id>" and carries the sentence of the step.
+ * The steps of a library pattern as its files give them, in the order of its uses of parts (the source, the hiding parts and the
+ * cash-out) and of their steps. A step is "<use id>.<step id>" and carries the sentence of the step.
  */
 export function librarySteps(id: string): { step: string; say: string; required: boolean }[] {
   const pattern = patternOf(id);
   if (!pattern) return [];
   const out: { step: string; say: string; required: boolean }[] = [];
-  for (const partId of [pattern.parts.source, ...pattern.parts.hiding, pattern.parts.cashOut]) {
-    for (const s of PARTS.get(partId)?.steps ?? []) out.push({ step: `${partId}.${s.id}`, say: s.say, required: s.need === "required" });
+  for (const use of usesOf(pattern)) {
+    for (const s of PARTS.get(partIdOf(use))?.steps ?? []) out.push({ step: `${use}.${s.id}`, say: s.say, required: s.need === "required" });
   }
   return out;
 }
@@ -559,12 +646,42 @@ export function patternSteps(ds: Dataset, key: string, own?: CaseSummary[]): { s
   return list.map((step) => ({ step, say: tally.get(step)!.say, cases: tally.get(step)!.cases }));
 }
 
-/** The references of a pattern first and then those that only its parts cite, each source once, with the pages of its first citation. */
-export function mergeReferences(lists: { id: string; pages?: string }[][]): { id: string; pages?: string }[] {
-  const seen = new Set<string>();
-  const out: { id: string; pages?: string }[] = [];
-  for (const r of lists.flat()) if (!seen.has(r.id)) { seen.add(r.id); out.push(r); }
-  return out;
+/**
+ * The references of a pattern first and then those that only its parts cite. Each source appears once, in the order of its first
+ * citation. Its pages are the pages of every citation in ascending order, each page once, with each run of 3 or more pages written as a range such as 15 to 20.
+ * A page text that is no number and no range of 2 numbers joined by " to " keeps its place after the numbers.
+ * Its note is each different note of its citations, in that order, joined with a space.
+ */
+export function mergeReferences(lists: { id: string; pages?: string; note?: string }[][]): { id: string; pages?: string; note?: string }[] {
+  const order: string[] = [];
+  const pages = new Map<string, string[]>();
+  const nums = new Map<string, Set<number>>();
+  const notes = new Map<string, string[]>();
+  for (const r of lists.flat()) {
+    if (!pages.has(r.id)) { order.push(r.id); pages.set(r.id, []); nums.set(r.id, new Set()); notes.set(r.id, []); }
+    const p = pages.get(r.id)!, n = notes.get(r.id)!, set = nums.get(r.id)!;
+    for (const x of (r.pages ?? "").split(", ")) {
+      const m = /^(\d+)(?: to (\d+))?$/.exec(x);
+      if (!m) { if (x && !p.includes(x)) p.push(x); continue; }
+      const a = Number(m[1]), b = m[2] === undefined ? a : Number(m[2]);
+      if (b >= a && b - a < 10000) for (let k = a; k <= b; k++) set.add(k);
+      else if (!p.includes(x)) p.push(x);
+    }
+    if (r.note && !n.includes(r.note)) n.push(r.note);
+  }
+  return order.map((id) => {
+    const list = [...nums.get(id)!].sort((x, y) => x - y), p: string[] = [];
+    for (let i = 0; i < list.length;) {
+      let j = i;
+      while (j + 1 < list.length && list[j + 1] === list[j] + 1) j++;
+      if (j - i >= 2) p.push(`${list[i]} to ${list[j]}`);
+      else for (let k = i; k <= j; k++) p.push(String(list[k]));
+      i = j + 1;
+    }
+    p.push(...pages.get(id)!);
+    const n = notes.get(id)!;
+    return { id, ...(p.length ? { pages: p.join(", ") } : {}), ...(n.length ? { note: n.join(" ") } : {}) };
+  });
 }
 
 /** The height of the dot of a ledger row: lower where the payer and the payee share a column, so that a label of 2 lines does not meet it. */

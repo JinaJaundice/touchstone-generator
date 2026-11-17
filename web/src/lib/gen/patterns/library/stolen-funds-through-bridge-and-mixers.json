@@ -1,0 +1,35 @@
+{
+  "schema": "touchstone-pattern/1",
+  "id": "stolen-funds-through-bridge-and-mixers",
+  "status": "tested",
+  "title": "Stolen exchange funds through mixers and a bridge to a bank account",
+  "short": "Stolen funds, bridge",
+  "summary": "An attacker empties an exchange's wallets. The funds pass through a mixer, a bridge and a second mixer, and an exchange then pays them into a bank account.",
+  "parts": {
+    "source": "exchange-hack",
+    "hiding": [
+      "mixer",
+      "bridge-hop",
+      "mixer"
+    ],
+    "cashOut": "exchange-to-bank-account"
+  },
+  "bankSees": "cash-out",
+  "per1k": 0.4,
+  "value": {
+    "log": [
+      5000,
+      100000
+    ],
+    "basis": {
+      "kind": "assumed",
+      "note": "A case follows one slice of the stolen funds. The slice is sized so that an exchange could pay it to a personal or small business account, and its range is assumed."
+    }
+  },
+  "references": [
+    {
+      "id": "S57",
+      "pages": "7, 16, 17, 29, 30, 42"
+    }
+  ]
+}

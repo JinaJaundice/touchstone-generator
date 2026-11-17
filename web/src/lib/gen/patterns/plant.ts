@@ -16,8 +16,9 @@ import labelsFile from "./labels.json";
 import type { Scheduled, World } from "../world";
 import type { AccountRole, GenConfig, LibraryCase, LibraryRecord, PatternInstance, Tx } from "../types";
 import type {
-  CaseLeg as PricedLeg, CaseParty, Chain, CustomerPick, Part, Party as PartParty, Pattern, Plan, PlanSettings, PricedCase, SourcePart, Step, TraceClass, Via,
+  CaseLeg as PricedLeg, CaseParty, Chain, CustomerPick, Part, Party as PartParty, Pattern, Plan, PlanLeg, PlanSettings, PricedCase, SourcePart, Step, TraceClass, Via,
 } from "./types";
+import { partIdOf } from "./types";
 
 /** The most rows of case legs that one pattern may write. */
 export const LIBRARY_ROW_CAP = 20000;
@@ -46,8 +47,15 @@ export function needSentence(pick: CustomerPick | undefined): string {
 }
 
 const part = (id: string): Part => { const p = PARTS.get(id); if (!p) throw new Error(`The pattern library holds no part ${id}`); return p; };
-const partyDef = (partId: string, group: string): PartParty | undefined => part(partId).parties.find((x) => `${partId}.${x.id}` === group);
-const stepOf = (partId: string, stepId: string): Step | undefined => part(partId).steps.find((x) => x.id === stepId);
+const partyDef = (use: string, group: string): PartParty | undefined => part(partIdOf(use)).parties.find((x) => `${use}.${x.id}` === group);
+const stepOf = (use: string, stepId: string): Step | undefined => part(partIdOf(use)).steps.find((x) => x.id === stepId);
+
+/** True where a case was cut short: some required step, other than a hand-off, has no payment whose number is in happened. A step is one pair of the use and the step of a payment. */
+export function cutShortOf(legs: readonly PlanLeg[], happened: ReadonlySet<number>): boolean {
+  const stepHappened = new Map<string, boolean>();
+  for (const l of legs) if (l.need === "required" && l.step !== "handoff") { const k = `${l.part}.${l.step}`; stepHappened.set(k, (stepHappened.get(k) ?? false) || happened.has(l.seq)); }
+  return [...stepHappened.values()].some((v) => !v);
+}
 
 /** The patterns that are switched on with a rate above 0, in the order of their ids. */
 export function patternsOn(cfg: GenConfig): Pattern[] {
@@ -370,9 +378,7 @@ export function settleLibrary(w: World): void {
       rows.push({ caseId: rec.caseId, seq: l.seq, pattern: rec.pattern, part: l.part, step: l.step, day, minute, from: l.from, to: l.to, via: l.via,
         asset: l.asset, chain: l.chain, planned: l.amount, amount, seenBy: l.seenBy, tx: txId, say: l.say });
     }
-    const stepHappened = new Map<string, boolean>();
-    for (const l of rec.plan.legs) if (l.need === "required" && l.step !== "handoff") { const k = `${l.part}.${l.step}`; stepHappened.set(k, (stepHappened.get(k) ?? false) || happened.has(l.seq)); }
-    const cutShort = [...stepHappened.values()].some((v) => !v);
+    const cutShort = cutShortOf(rec.plan.legs, happened);
     const live = rec.planted.filter((x) => alive.has(x.p.id));
     if (!live.length) { skip(w, st, rec.pattern, "no-transaction", null, null); continue; }
     // the windows of the planted patterns follow their transactions

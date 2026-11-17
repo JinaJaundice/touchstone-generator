@@ -252,3 +252,78 @@ export function resolveAssets(pattern: Pattern, partsById: PartLookup): { in: Pa
   for (const g of src.gives) { const res = go(0, g, [{ in: g, out: g }]); if (res) return res; }
   return null;
 }
+
+// ---------- the uses of a part and the chains of a party ----------
+
+/** The id of a part from the id of one of its uses: the text before the character ~, or the whole text where it holds none. */
+export function partIdOf(use: string): string {
+  const i = use.indexOf("~");
+  return i < 0 ? use : use.slice(0, i);
+}
+
+/** The ids of the uses of a pattern in the order source part, hiding parts and cash-out part. The first use of a part has the id of the part, and a later use has that id, the character ~ and its number, such as mixer~2. */
+export function usesOf(pattern: Pattern): string[] {
+  const seen: Record<string, number> = {};
+  return [pattern.parts.source, ...pattern.parts.hiding, pattern.parts.cashOut].map((id) => {
+    seen[id] = (seen[id] ?? 0) + 1;
+    return seen[id] === 1 ? id : `${id}~${seen[id]}`;
+  });
+}
+
+/** The symbol and the chain of a payment. Only a payment by the way chain or bank-crypto has a chain, and a payment in XMR has none. The assets are those that the use takes in and gives out. */
+export function legChain(via: Via, asset: Step["asset"], assets: { in: Pair; out: Pair }): { sym: string; chain: Chain | null } {
+  const pair: Pair | null = asset === "in" ? assets.in : asset === "out" ? assets.out : null;
+  const sym = pair ? pair.split("@")[0] : asset;
+  const hit: string | undefined = pair ?? [assets.in, assets.out, ...PAIRS].find((x) => x.startsWith(sym + "@"));
+  const chain = (via === "chain" || via === "bank-crypto") && sym !== "XMR" && hit ? (hit.split("@")[1] as Chain) : null;
+  return { sym, chain };
+}
+
+/** A payment that can carry a chain: the use and the step that make it (the step is handoff for a hand-off), its chain, whether its way is bank-crypto, and each party that it names with the id of the use of that party. */
+export interface ChainPayment { use: string; step: string; chain: Chain; bankCrypto: boolean; parties: { use: string; party: Party }[] }
+
+/** Walks a pattern as the expander does and lists each payment that can carry a chain, in the order of the walk. The list is empty where the assets of the pattern do not join. */
+export function chainPayments(pattern: Pattern, parts: PartLookup): ChainPayment[] {
+  const assets = resolveAssets(pattern, parts);
+  if (!assets) return [];
+  const uses = usesOf(pattern), out: ChainPayment[] = [];
+  const named = (use: string, id: string): { use: string; party: Party }[] => {
+    const party = lookup(parts, partIdOf(use))?.parties.find((x) => x.id === id);
+    return party ? [{ use, party }] : [];
+  };
+  const record = (use: string, step: string, via: Via, asset: Step["asset"], pair: { in: Pair; out: Pair }, parties: { use: string; party: Party }[]): void => {
+    const { chain } = legChain(via, asset, pair);
+    if (chain) out.push({ use, step, chain, bankCrypto: via === "bank-crypto", parties });
+  };
+  uses.forEach((use, i) => {
+    const part = lookup(parts, partIdOf(use));
+    if (!part) return;
+    if (i > 0) { // the hand-off: the exit party of the earlier use to the entry party of this use
+      const before = lookup(parts, partIdOf(uses[i - 1]));
+      const exit = before && before.kind !== "cash-out" ? before.exit : "", entry = part.kind !== "source" ? part.entry : "";
+      record(use, "handoff", "chain", "in", assets[i], [...named(uses[i - 1], exit), ...named(use, entry)]);
+    }
+    for (const step of part.steps) {
+      const ends = [...named(use, step.from), ...named(use, step.to)];
+      if (step.kind === "chain" && "party" in step.through) ends.push(...named(use, step.through.party));
+      for (const via of ([] as Via[]).concat(step.via)) record(use, step.id, via, step.asset, assets[i], ends);
+      if (step.kind === "chain" && step.peel) {
+        const peel = step.peel, ways = ([] as Via[]).concat(peel.via ?? step.via);
+        for (const via of ways) record(use, step.id, via, step.asset, assets[i], named(use, peel.to));
+      }
+    }
+  });
+  return out;
+}
+
+/** The chains on which a payment can name each party, by the key use id, a full stop and party id (the group of the party in a plan). A party that is new for each payment has no entry, and nor has a party that no payment with a chain names. A set lists its chains in the order in which the walk first met them. */
+export function partyChains(pattern: Pattern, parts: PartLookup): Map<string, Set<Chain>> {
+  const map = new Map<string, Set<Chain>>();
+  for (const pay of chainPayments(pattern, parts))
+    for (const { use, party } of pay.parties) {
+      if (party.reuse === "leg") continue;
+      const key = `${use}.${party.id}`;
+      (map.get(key) ?? map.set(key, new Set<Chain>()).get(key)!).add(pay.chain);
+    }
+  return map;
+}

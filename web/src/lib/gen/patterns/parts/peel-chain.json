@@ -49,7 +49,7 @@
     {
       "id": "hops",
       "kind": "chain",
-      "say": "The funds pass through a run of new wallets, a few minutes apart.",
+      "say": "The funds pass through a run of new wallets, minutes apart.",
       "from": "first",
       "to": "collector",
       "via": "chain",

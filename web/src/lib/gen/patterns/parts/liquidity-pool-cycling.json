@@ -1,0 +1,94 @@
+{
+  "schema": "touchstone-part/1",
+  "id": "liquidity-pool-cycling",
+  "kind": "hiding",
+  "status": "tested",
+  "title": "The same funds cycled through several liquidity pools",
+  "short": "Pool cycling",
+  "summary": "The same funds move through 3 to 8 liquidity pools in turn over 1 to 12 hours. They mix with legitimate volume on the way.",
+  "references": [
+    {
+      "id": "S57",
+      "pages": "30"
+    }
+  ],
+  "routes": [
+    {
+      "from": "ETH@ethereum",
+      "to": "same"
+    },
+    {
+      "from": "USDT@ethereum",
+      "to": "same"
+    }
+  ],
+  "entry": "holder",
+  "exit": "fresh",
+  "hides": {
+    "chance": 0.3,
+    "basis": {
+      "kind": "assumed",
+      "note": "No source read for this design publishes how often a screening tool loses the link at this method. The value is an assumption and means that the trail is lost in 30 cases in 100."
+    }
+  },
+  "parties": [
+    {
+      "id": "holder",
+      "kind": "wallet",
+      "label": "the wallet that holds the funds",
+      "reuse": "case"
+    },
+    {
+      "id": "fresh",
+      "kind": "wallet",
+      "label": "a new wallet that receives the funds",
+      "reuse": "case"
+    }
+  ],
+  "steps": [
+    {
+      "id": "cycle",
+      "kind": "chain",
+      "say": "The funds pass through a run of liquidity pools in turn.",
+      "from": "holder",
+      "to": "fresh",
+      "via": "chain",
+      "asset": "in",
+      "through": {
+        "new": "pool",
+        "count": [
+          3,
+          8
+        ]
+      },
+      "amount": {
+        "of": "held",
+        "share": [
+          1,
+          1
+        ]
+      },
+      "start": {
+        "after": "entry",
+        "minutes": [
+          5,
+          60
+        ]
+      },
+      "between": {
+        "minutes": [
+          20,
+          90
+        ]
+      },
+      "need": "required",
+      "varies": "ephemeral",
+      "basis": {
+        "kind": "reported",
+        "ref": "S57",
+        "pages": "30",
+        "note": "The report says that the same capital moves among many pools and mixes with legitimate volume. The count of 3 to 8 pools and the waits, which give 1 to 12 hours, are assumed."
+      }
+    }
+  ]
+}

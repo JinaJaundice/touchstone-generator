@@ -1,0 +1,24 @@
+{
+  "schema": "touchstone-pattern/1",
+  "id": "investment-scam-to-stablecoin",
+  "status": "tested",
+  "title": "An investment scam paid through the victim's own exchange account",
+  "short": "Stablecoin scam",
+  "summary": "A victim pays their own exchange account, which passes each payment to the scammer in a stablecoin. The funds cross chains, are traded at an exchange with weak checks and are sold to an over-the-counter desk.",
+  "parts": {
+    "source": "investment-scam-through-exchange",
+    "hiding": [
+      "swap-bridge-swap",
+      "high-risk-exchange-pass"
+    ],
+    "cashOut": "otc-desk-payout"
+  },
+  "bankSees": "source",
+  "per1k": 0.4,
+  "references": [
+    {
+      "id": "S57",
+      "pages": "24, 25, 42"
+    }
+  ]
+}

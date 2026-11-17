@@ -1,0 +1,147 @@
+{
+  "schema": "touchstone-part/1",
+  "id": "darknet-market-purchases",
+  "kind": "source",
+  "status": "tested",
+  "family": "crypto",
+  "title": "Purchases on a darknet market paid on to a vendor less a commission",
+  "short": "Darknet market purchases",
+  "summary": "Several customers each buy small amounts of bitcoin and send them to a deposit address of a market. The market releases each payment to a vendor's wallet less a commission.",
+  "references": [
+    {
+      "id": "S57",
+      "pages": "11 to 15"
+    }
+  ],
+  "value": {
+    "from": "steps",
+    "basis": {
+      "kind": "reported",
+      "ref": "S57",
+      "pages": "12, 13",
+      "note": "The report says that the buyer pays the market, which holds the funds and pays the vendor less its commission. The payment sizes are assumed."
+    }
+  },
+  "traceClass": "darknet market",
+  "gives": [
+    "BTC@bitcoin"
+  ],
+  "exit": "vendor",
+  "parties": [
+    {
+      "id": "buyer",
+      "kind": "customer",
+      "role": "launderer",
+      "label": "a customer who buys from the market",
+      "count": [
+        3,
+        12
+      ],
+      "pick": {
+        "segments": [
+          "retail"
+        ],
+        "hasWallet": true
+      }
+    },
+    {
+      "id": "deposit",
+      "kind": "wallet",
+      "chain": "bitcoin",
+      "label": "the deposit address of the market",
+      "reuse": "case",
+      "known": {
+        "chance": 0.5,
+        "class": "darknet market",
+        "basis": {
+          "kind": "assumed",
+          "note": "No source read for this part gives the share of market deposit addresses that a screening tool has already labelled. The value means that 1 address in 2 is labelled."
+        }
+      }
+    },
+    {
+      "id": "vendor",
+      "kind": "wallet",
+      "chain": "bitcoin",
+      "label": "the vendor's wallet",
+      "reuse": "case"
+    }
+  ],
+  "steps": [
+    {
+      "id": "buy",
+      "kind": "move",
+      "say": "Each customer buys bitcoin and sends small payments to the deposit address of the market.",
+      "from": "buyer",
+      "to": "deposit",
+      "via": "bank-crypto",
+      "asset": "BTC",
+      "each": "buyer",
+      "amount": {
+        "gbp": [
+          40,
+          600
+        ]
+      },
+      "pays": "own",
+      "times": [
+        1,
+        4
+      ],
+      "start": {
+        "after": "case",
+        "days": [
+          0,
+          5
+        ]
+      },
+      "between": {
+        "days": [
+          1,
+          10
+        ]
+      },
+      "need": "required",
+      "varies": "rotating",
+      "legRole": "structured-purchase",
+      "basis": {
+        "kind": "reported",
+        "ref": "S57",
+        "pages": "11 to 13",
+        "note": "The report says that buyers pay the market, which holds the funds in escrow. The deposit address, the number of customers, the count of 1 to 4 payments, the sizes of 40 to 600 pounds, the waits and the use of bitcoin are assumed."
+      }
+    },
+    {
+      "id": "release",
+      "kind": "move",
+      "say": "The market releases each payment to the vendor's wallet, less a commission.",
+      "from": "deposit",
+      "to": "vendor",
+      "via": "chain",
+      "asset": "out",
+      "amount": {
+        "of": "leg",
+        "share": [
+          0.92,
+          0.97
+        ]
+      },
+      "start": {
+        "after": "buy",
+        "per": "leg",
+        "hours": [
+          1,
+          48
+        ]
+      },
+      "need": "required",
+      "varies": "ephemeral",
+      "basis": {
+        "kind": "reported",
+        "ref": "S57",
+        "pages": "12, 13",
+        "note": "The report says that the market pays the vendor less its commission. The commission of 3% to 8% and the wait are assumed. The commission remains at the deposit address, which is the market's."
+      }
+    }
+  ]
+}

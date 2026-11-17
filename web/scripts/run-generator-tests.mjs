@@ -26,6 +26,9 @@ for (const t of tests) {
     process.exit(1);
   }
   const run = spawnSync(process.execPath, [out, ...t.args], { cwd: web, stdio: "inherit" });
-  if (run.status !== 0) process.exit(run.status ?? 1);
+  if (run.status !== 0) {
+    console.error(`test ${t.name} failed: ${run.status === null ? `the process was stopped by ${run.signal ?? "a signal"}${run.error ? ` (${run.error.message})` : ""}` : `exit code ${run.status}`}`);
+    process.exit(run.status ?? 1);
+  }
 }
 console.log("generator tests passed");

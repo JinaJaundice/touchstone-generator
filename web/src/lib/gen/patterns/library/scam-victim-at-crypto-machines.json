@@ -1,0 +1,24 @@
+{
+  "schema": "touchstone-pattern/1",
+  "id": "scam-victim-at-crypto-machines",
+  "status": "tested",
+  "title": "A scam victim who takes out cash and feeds crypto cash machines",
+  "short": "Crypto ATM scam",
+  "summary": "A victim takes out cash and feeds it into crypto cash machines, which send bitcoin to the scammer. The bitcoin is peeled through new wallets and sold to an over-the-counter desk.",
+  "parts": {
+    "source": "victim-fed-crypto-atm",
+    "hiding": [
+      "peel-chain"
+    ],
+    "cashOut": "otc-desk-payout"
+  },
+  "bankSees": "source",
+  "per1k": 0.4,
+  "references": [
+    {
+      "id": "S57",
+      "pages": "24, 28, 29, 34",
+      "note": "The report describes each method separately. The library combines them as an example."
+    }
+  ]
+}

@@ -618,6 +618,11 @@ select.select { font: inherit; font-size: var(--t-small); padding: 5px 28px 5px 
 .lib-list .page-sub { max-width: 56ch; }
 .lib-page p, .lib-page .page-sub, .lib-page .sect-sub, #library > .sect-body .sect-sub { max-width: 66ch; }
 .lib-page .flow-read { max-width: 66ch; }
+.lib-page .tbl tbody th[scope="row"] { padding-right: 12px; }
+.shape-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px 32px; margin: 0 0 18px; }
+.shape-rate { display: flex; align-items: center; gap: 12px; }
+.shape-rate .slider { flex: 1; min-width: 0; }
+.shape-state { color: var(--muted); }
 .dl-list { display: flex; flex-direction: column; }
 .dl { display: flex; flex-direction: column; gap: 2px; text-align: left; background: none; border: 0; border-bottom: 1px solid var(--rule-soft); padding: 9px 0; cursor: pointer; color: var(--ink); }
 .dl:hover b { text-decoration: underline; text-underline-offset: 3px; }
@@ -869,7 +874,7 @@ select.select { font: inherit; font-size: var(--t-small); padding: 5px 28px 5px 
   .front-numbers > div:nth-child(odd) { padding-left: 0; border-left: 0; }
   .front-numbers b { font-size: 32px; }
   .front-lede { font-size: 24px; }
-  .uses, .sources, .foot-cols, .settings-grid, .cols-2, .cols-3 { grid-template-columns: minmax(0, 1fr); }
+  .uses, .sources, .foot-cols, .settings-grid, .cols-2, .cols-3, .shape-grid { grid-template-columns: minmax(0, 1fr); }
   .rule-figures { grid-template-columns: repeat(2, 1fr); }
   .typo-row { grid-template-columns: 34px 1fr 70px 30px; }
   .redund-list li { grid-template-columns: auto 30px auto 1fr 40px; }

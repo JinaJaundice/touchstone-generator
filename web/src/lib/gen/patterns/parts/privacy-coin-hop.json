@@ -1,0 +1,226 @@
+{
+  "schema": "touchstone-part/1",
+  "id": "privacy-coin-hop",
+  "kind": "hiding",
+  "status": "tested",
+  "title": "Funds swapped into a privacy coin, moved and swapped back",
+  "short": "Privacy coin hop",
+  "summary": "The funds are swapped into a privacy coin, moved once off the record and swapped out to a new bitcoin wallet within 24 hours. A screening tool can seldom follow funds in some privacy coins, because they hide the sender, the recipient and the amount.",
+  "references": [
+    {
+      "id": "S57",
+      "pages": "31, 32"
+    }
+  ],
+  "routes": [
+    {
+      "from": "BTC@bitcoin",
+      "to": "BTC@bitcoin"
+    },
+    {
+      "from": "ETH@ethereum",
+      "to": "BTC@bitcoin"
+    },
+    {
+      "from": "USDT@ethereum",
+      "to": "BTC@bitcoin"
+    },
+    {
+      "from": "USDT@tron",
+      "to": "BTC@bitcoin"
+    }
+  ],
+  "entry": "holder",
+  "exit": "fresh",
+  "hides": {
+    "chance": 0.95,
+    "basis": {
+      "kind": "assumed",
+      "note": "No source read for this design publishes how often a screening tool loses the link at this method. The value is an assumption and means that the trail is lost in 95 cases in 100."
+    }
+  },
+  "parties": [
+    {
+      "id": "holder",
+      "kind": "wallet",
+      "label": "the wallet that holds the funds",
+      "reuse": "case"
+    },
+    {
+      "id": "swapper",
+      "kind": "swap-service",
+      "label": "a service that swaps the funds",
+      "reuse": "case"
+    },
+    {
+      "id": "coinA",
+      "kind": "wallet",
+      "label": "a first wallet in the privacy coin",
+      "reuse": "case"
+    },
+    {
+      "id": "coinB",
+      "kind": "wallet",
+      "label": "a second wallet in the privacy coin",
+      "reuse": "case"
+    },
+    {
+      "id": "fresh",
+      "kind": "wallet",
+      "chain": "bitcoin",
+      "label": "a new bitcoin wallet that receives the funds",
+      "reuse": "case"
+    }
+  ],
+  "steps": [
+    {
+      "id": "deposit",
+      "kind": "move",
+      "say": "The wallet sends the funds to the swap service.",
+      "from": "holder",
+      "to": "swapper",
+      "via": "chain",
+      "asset": "in",
+      "amount": {
+        "of": "held",
+        "share": [
+          1,
+          1
+        ]
+      },
+      "start": {
+        "after": "entry",
+        "minutes": [
+          5,
+          60
+        ]
+      },
+      "need": "required",
+      "varies": "rotating",
+      "basis": {
+        "kind": "assumed",
+        "note": "No source read for the library describes a swap service that moves funds into and out of a privacy coin. The route, the order and the wait are assumed."
+      }
+    },
+    {
+      "id": "toCoin",
+      "kind": "move",
+      "say": "The service swaps the funds into the privacy coin.",
+      "from": "swapper",
+      "to": "coinA",
+      "via": "off-record",
+      "asset": "XMR",
+      "amount": {
+        "of": "held",
+        "share": [
+          1,
+          1
+        ]
+      },
+      "start": {
+        "after": "deposit",
+        "minutes": [
+          2,
+          20
+        ]
+      },
+      "need": "required",
+      "varies": "ephemeral",
+      "basis": {
+        "kind": "reported",
+        "ref": "S57",
+        "pages": "31, 32",
+        "note": "The report says that the coin hides the sender, the recipient and the amount, which keeps the move off the record. The swap into the coin, the choice of coin and the wait are assumed."
+      }
+    },
+    {
+      "id": "hop",
+      "kind": "move",
+      "say": "The funds move once between 2 wallets in the privacy coin.",
+      "from": "coinA",
+      "to": "coinB",
+      "via": "off-record",
+      "asset": "XMR",
+      "amount": {
+        "of": "held",
+        "share": [
+          1,
+          1
+        ]
+      },
+      "start": {
+        "after": "toCoin",
+        "hours": [
+          1,
+          8
+        ]
+      },
+      "need": "required",
+      "varies": "ephemeral",
+      "basis": {
+        "kind": "reported",
+        "ref": "S57",
+        "pages": "31, 32",
+        "note": "The report says that features of the most prominent privacy coin make tracking it close to impossible. The choice of coin and the wait are assumed."
+      }
+    },
+    {
+      "id": "toService",
+      "kind": "move",
+      "say": "The funds go back to the swap service in the privacy coin.",
+      "from": "coinB",
+      "to": "swapper",
+      "via": "off-record",
+      "asset": "XMR",
+      "amount": {
+        "of": "held",
+        "share": [
+          1,
+          1
+        ]
+      },
+      "start": {
+        "after": "hop",
+        "hours": [
+          1,
+          6
+        ]
+      },
+      "need": "required",
+      "varies": "ephemeral",
+      "basis": {
+        "kind": "assumed",
+        "note": "No source read for the library describes a swap service that moves funds into and out of a privacy coin. The route, the order and the wait are assumed."
+      }
+    },
+    {
+      "id": "release",
+      "kind": "move",
+      "say": "The service pays bitcoin to a new wallet.",
+      "from": "swapper",
+      "to": "fresh",
+      "via": "chain",
+      "asset": "out",
+      "amount": {
+        "of": "held",
+        "share": [
+          1,
+          1
+        ]
+      },
+      "start": {
+        "after": "toService",
+        "minutes": [
+          5,
+          60
+        ]
+      },
+      "need": "required",
+      "varies": "ephemeral",
+      "basis": {
+        "kind": "assumed",
+        "note": "No source read for the library describes a swap service that moves funds into and out of a privacy coin. The route and the order are assumed. The waits of the 5 steps together are inside 24 hours and are assumed, and the service fee is not modelled."
+      }
+    }
+  ]
+}

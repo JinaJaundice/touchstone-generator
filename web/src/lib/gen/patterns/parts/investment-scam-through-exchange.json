@@ -1,0 +1,249 @@
+{
+  "schema": "touchstone-part/1",
+  "id": "investment-scam-through-exchange",
+  "kind": "source",
+  "status": "tested",
+  "family": "fraud",
+  "title": "An investment scam paid through the victim's own exchange account",
+  "short": "Investment scam",
+  "summary": "A victim sends growing payments to their own account at an exchange, which passes each one on to the scammer in a stablecoin. Early on, the exchange pays back a small sum as an apparent gain.",
+  "references": [
+    {
+      "id": "S57",
+      "pages": "24, 25, 42"
+    },
+    {
+      "id": "S01"
+    }
+  ],
+  "value": {
+    "log": [
+      3000,
+      250000
+    ],
+    "capByBalance": 0.9,
+    "basis": {
+      "kind": "reported",
+      "ref": "S01",
+      "note": "The UK Finance annual fraud report gives GBP 144.4m over 7,767 investment scam cases in 2024, a mean near GBP 18,600. The report on illicit finance (pages 25 and 42) describes grooming over weeks and growing payments through the victim's own compliant exchange account. The range of the value is assumed, and its mean is well above the mean of the UK Finance report. A case takes at most 90% of what the victim holds."
+    }
+  },
+  "traceClass": "money laundering",
+  "gives": [
+    "USDT@tron"
+  ],
+  "exit": "scammerWallet",
+  "parties": [
+    {
+      "id": "victim",
+      "kind": "customer",
+      "role": "victim",
+      "label": "the victim of the scam",
+      "count": [
+        1,
+        1
+      ],
+      "pick": {
+        "segments": [
+          "retail"
+        ],
+        "minAge": 40,
+        "balance": "top-quarter"
+      }
+    },
+    {
+      "id": "exchange",
+      "kind": "exchange",
+      "label": "the victim's own account at an exchange",
+      "reuse": "case"
+    },
+    {
+      "id": "scammerWallet",
+      "kind": "wallet",
+      "chain": "tron",
+      "label": "the scammer's wallet",
+      "reuse": "case"
+    }
+  ],
+  "steps": [
+    {
+      "id": "first",
+      "kind": "move",
+      "say": "The victim sends a first small payment to their own account at an exchange.",
+      "from": "victim",
+      "to": "exchange",
+      "via": "fps",
+      "asset": "GBP",
+      "amount": {
+        "of": "value",
+        "share": [
+          0.02,
+          0.02
+        ]
+      },
+      "pays": "own",
+      "start": {
+        "after": "case",
+        "hours": [
+          0,
+          48
+        ]
+      },
+      "need": "required",
+      "varies": "rotating",
+      "legRole": "victim-payment",
+      "facts": {
+        "reason": "investment",
+        "payeeType": "business"
+      },
+      "basis": {
+        "kind": "reported",
+        "ref": "S57",
+        "pages": "25, 42",
+        "note": "The report describes payments that grow over weeks or months. The first payment of 2% of the value of the case is assumed, which gives 360 pounds in a case of 18,000 pounds. The start wait is assumed."
+      }
+    },
+    {
+      "id": "gain",
+      "kind": "move",
+      "say": "The exchange pays back part of the first payment, which the scammer presents as a gain.",
+      "from": "exchange",
+      "to": "victim",
+      "via": "fps",
+      "asset": "GBP",
+      "amount": {
+        "of": "held",
+        "share": [
+          0.3,
+          0.8
+        ]
+      },
+      "start": {
+        "after": "first",
+        "days": [
+          2,
+          10
+        ]
+      },
+      "need": "supporting",
+      "chance": 0.6,
+      "varies": "rotating",
+      "legRole": "funding",
+      "basis": {
+        "kind": "reported",
+        "ref": "S57",
+        "pages": "25",
+        "note": "The report says that victims are allowed small early withdrawals. The 6 cases in 10 and the share of 30% to 80% of the first payment are assumed. The sum returns to the victim and is no part of the scammer's proceeds. The start wait is assumed."
+      }
+    },
+    {
+      "id": "further",
+      "kind": "move",
+      "say": "The victim sends 2 to 5 further payments that rise in size over several weeks.",
+      "from": "victim",
+      "to": "exchange",
+      "via": "fps",
+      "asset": "GBP",
+      "amount": {
+        "of": "value",
+        "share": [
+          0.98,
+          0.98
+        ]
+      },
+      "pays": "own",
+      "split": "rising",
+      "times": [
+        2,
+        5
+      ],
+      "start": {
+        "after": "first",
+        "days": [
+          11,
+          21
+        ]
+      },
+      "between": {
+        "days": [
+          5,
+          10
+        ]
+      },
+      "need": "required",
+      "varies": "rotating",
+      "legRole": "victim-payment",
+      "facts": {
+        "reason": "investment",
+        "payeeType": "business"
+      },
+      "basis": {
+        "kind": "reported",
+        "ref": "S57",
+        "pages": "25, 42",
+        "note": "The report describes growing payments over weeks or months. The UK Finance annual fraud report gives about 3.8 payments for each investment scam case in 2024. The range of 3 to 6 payments, counting the first payment, the start wait and the waits of 5 to 10 days are assumed. The amounts of 98% of the value of the case in rising sizes are assumed."
+      }
+    },
+    {
+      "id": "forward",
+      "kind": "move",
+      "say": "After each payment the exchange account sends the same value in a stablecoin to the scammer's wallet.",
+      "from": "exchange",
+      "to": "scammerWallet",
+      "via": "chain",
+      "asset": "out",
+      "amount": {
+        "of": "leg",
+        "share": [
+          1,
+          1
+        ]
+      },
+      "start": {
+        "after": "further",
+        "per": "leg",
+        "minutes": [
+          5,
+          180
+        ]
+      },
+      "need": "required",
+      "varies": "ephemeral",
+      "basis": {
+        "kind": "reported",
+        "ref": "S57",
+        "pages": "25, 42",
+        "note": "The report describes the victim's own exchange account as the route to the scammer. The stablecoin transfer and the wait are assumed."
+      }
+    },
+    {
+      "id": "sweep",
+      "kind": "move",
+      "say": "The exchange account sends the rest of the first payment to the scammer's wallet.",
+      "from": "exchange",
+      "to": "scammerWallet",
+      "via": "chain",
+      "asset": "out",
+      "amount": {
+        "of": "held",
+        "share": [
+          1,
+          1
+        ]
+      },
+      "start": {
+        "after": "forward",
+        "minutes": [
+          10,
+          240
+        ]
+      },
+      "need": "required",
+      "varies": "ephemeral",
+      "basis": {
+        "kind": "assumed",
+        "note": "The report does not say what happens to the rest of the first payment. This step is assumed, so that no money remains at the exchange."
+      }
+    }
+  ]
+}

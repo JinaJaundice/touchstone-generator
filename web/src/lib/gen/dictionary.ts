@@ -208,23 +208,23 @@ export const PATTERN_FIELDS: FieldSpec[] = [
 
 export const PARTY_FIELDS: FieldSpec[] = [
   { name: "caseId", type: "int", truth: true, meaning: "the case the party is in" },
-  { name: "key", type: "string", truth: true, meaning: "the party's key in the case, made from the part, the party and the number of the member" },
+  { name: "key", type: "string", truth: true, meaning: "the party's key in the case, made from the id of the use of its part and the id of the party. A customer and a party that is new for each payment have a number at the end of the key" },
   { name: "group", type: "string", truth: true, meaning: "the key without the number of the member, which the flow view uses to draw a run of wallets as one column" },
   { name: "pattern", type: "string", truth: true, meaning: "the id of the crime pattern of the library" },
-  { name: "part", type: "string", truth: true, meaning: "the id of the part that the party belongs to" },
+  { name: "part", type: "string", truth: true, meaning: "the id of the part that the party belongs to. Where the pattern names the part more than once, a later use of it has that id, ~ and a number" },
   { name: "end", type: "enum", truth: true, meaning: "the end of the pattern that the party is on", values: { source: "where the money comes from", hiding: "where the trail is hidden", "cash-out": "where the money is taken out" } },
   { name: "kind", type: "string", truth: true, meaning: "the kind of party, or outside-account for a customer on an end that the bank does not see" },
   { name: "label", type: "string", truth: true, meaning: "the party's label from the file of its part" },
   { name: "account", type: "int", truth: true, nullable: true, meaning: "the account that fills the party", when: "the bank sees the end of the party and the planted pattern of that end remains" },
-  { name: "chain", type: "string", truth: true, nullable: true, meaning: "the chain of a party on a chain", when: "the party is on a chain" },
-  { name: "address", type: "string", truth: true, nullable: true, meaning: "the address that the generator made for a party on a chain", when: "the party is on a chain" },
+  { name: "chain", type: "string", truth: true, nullable: true, meaning: "the chain of a party that holds one", when: "payments on one chain name the party" },
+  { name: "address", type: "string", truth: true, nullable: true, meaning: "the address that the generator made for a party that holds a chain", when: "payments on one chain name the party" },
 ];
 
 export const CASE_LEG_FIELDS: FieldSpec[] = [
   { name: "caseId", type: "int", truth: true, meaning: "the case the payment is in" },
   { name: "seq", type: "int", truth: true, meaning: "the number of the payment in the case, in the order of its time" },
   { name: "pattern", type: "string", truth: true, meaning: "the id of the crime pattern of the library" },
-  { name: "part", type: "string", truth: true, meaning: "the id of the part that the payment belongs to" },
+  { name: "part", type: "string", truth: true, meaning: "the id of the part that the payment belongs to, in the form of the field part of a party" },
   { name: "step", type: "string", truth: true, meaning: "the id of the step of the part that the payment belongs to" },
   { name: "day", type: "int", truth: true, meaning: "the day on which the payment happens" },
   { name: "minute", type: "int", truth: true, meaning: "the minute of the day on which the payment happens" },

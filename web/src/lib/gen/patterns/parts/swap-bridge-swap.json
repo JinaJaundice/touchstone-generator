@@ -1,0 +1,122 @@
+{
+  "schema": "touchstone-part/1",
+  "id": "swap-bridge-swap",
+  "kind": "hiding",
+  "status": "tested",
+  "title": "One signed order that swaps, bridges and swaps again",
+  "short": "Swap, bridge, swap",
+  "summary": "One signed order swaps the asset, bridges it to another chain and swaps it again within 2 to 15 minutes. An aggregator builds the single transaction.",
+  "references": [
+    {
+      "id": "S57",
+      "pages": "31"
+    }
+  ],
+  "routes": [
+    {
+      "from": "USDT@tron",
+      "to": "USDT@ethereum"
+    },
+    {
+      "from": "ETH@ethereum",
+      "to": "USDT@tron"
+    },
+    {
+      "from": "BTC@bitcoin",
+      "to": "USDT@tron"
+    }
+  ],
+  "entry": "holder",
+  "exit": "fresh",
+  "hides": {
+    "chance": 0.5,
+    "basis": {
+      "kind": "assumed",
+      "note": "No source read for this design publishes how often a screening tool loses the link at this method. The value is an assumption and means that the trail is lost in 50 cases in 100."
+    }
+  },
+  "parties": [
+    {
+      "id": "holder",
+      "kind": "wallet",
+      "label": "the wallet that holds the funds",
+      "reuse": "case"
+    },
+    {
+      "id": "aggregator",
+      "kind": "swap-service",
+      "label": "a service that builds the signed order",
+      "reuse": "case"
+    },
+    {
+      "id": "fresh",
+      "kind": "wallet",
+      "label": "a new wallet that receives the result",
+      "reuse": "case"
+    }
+  ],
+  "steps": [
+    {
+      "id": "order",
+      "kind": "move",
+      "say": "The wallet sends the funds to the service with one signed order.",
+      "from": "holder",
+      "to": "aggregator",
+      "via": "chain",
+      "asset": "in",
+      "amount": {
+        "of": "held",
+        "share": [
+          1,
+          1
+        ]
+      },
+      "start": {
+        "after": "entry",
+        "minutes": [
+          5,
+          60
+        ]
+      },
+      "need": "required",
+      "varies": "rotating",
+      "basis": {
+        "kind": "reported",
+        "ref": "S57",
+        "pages": "31",
+        "note": "The report says that an aggregator builds one transaction that swaps, bridges and swaps. The wait is assumed."
+      }
+    },
+    {
+      "id": "deliver",
+      "kind": "move",
+      "say": "The service delivers the swapped funds to a new wallet on the other chain.",
+      "from": "aggregator",
+      "to": "fresh",
+      "via": "chain",
+      "asset": "out",
+      "amount": {
+        "of": "held",
+        "share": [
+          1,
+          1
+        ]
+      },
+      "start": {
+        "after": "order",
+        "minutes": [
+          2,
+          15
+        ]
+      },
+      "need": "required",
+      "varies": "ephemeral",
+      "basis": {
+        "kind": "reported",
+        "ref": "S57",
+        "pages": "31",
+        "note": "The report says that the whole route takes minutes. The wait of 2 to 15 minutes is assumed, and the service fee is not modelled."
+      }
+    }
+  ]
+}

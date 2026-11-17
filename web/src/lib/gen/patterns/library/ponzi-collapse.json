@@ -1,0 +1,24 @@
+{
+  "schema": "touchstone-pattern/1",
+  "id": "ponzi-collapse",
+  "status": "tested",
+  "title": "An investment scheme that pays early investors from later ones and then empties",
+  "short": "Ponzi collapse",
+  "summary": "Investors pay the operator, who pays a return on each payment and then sends most of the balance to an exchange, which sends bitcoin to the operator's wallet. The bitcoin passes through a peel chain and a joint transaction and is sold to an over-the-counter desk.",
+  "parts": {
+    "source": "ponzi-scheme",
+    "hiding": [
+      "peel-chain",
+      "coinjoin"
+    ],
+    "cashOut": "otc-desk-payout"
+  },
+  "bankSees": "both",
+  "per1k": 0.4,
+  "references": [
+    {
+      "id": "S57",
+      "pages": "22, 23, 28"
+    }
+  ]
+}

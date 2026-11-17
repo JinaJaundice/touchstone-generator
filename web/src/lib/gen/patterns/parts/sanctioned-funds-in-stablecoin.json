@@ -1,0 +1,93 @@
+{
+  "schema": "touchstone-part/1",
+  "id": "sanctioned-funds-in-stablecoin",
+  "kind": "source",
+  "status": "tested",
+  "title": "Funds from a sanctioned bank sent in a stablecoin to a payment firm",
+  "short": "Sanctioned funds",
+  "summary": "In this example, a client whose funds started at a sanctioned bank sends a stablecoin to the payment firm's wallet in 1 to 4 transfers. A case follows one slice of the client's funds.",
+  "references": [
+    {
+      "id": "S57",
+      "pages": "36"
+    }
+  ],
+  "value": {
+    "log": [
+      50000,
+      2000000
+    ],
+    "basis": {
+      "kind": "reported",
+      "ref": "S57",
+      "pages": "36",
+      "note": "The report describes a payment firm whose clients, often with funds at Russian banks, sent mainly a dollar stablecoin. An indictment alleges that between June 2023 and January 2025 the firm moved about 530 million US dollars through the US financial system, much of it for sanctioned banks. The size of a case is assumed."
+    }
+  },
+  "traceClass": "money laundering",
+  "gives": [
+    "USDT@tron"
+  ],
+  "exit": "firmWallet",
+  "parties": [
+    {
+      "id": "client",
+      "kind": "wallet",
+      "chain": "tron",
+      "label": "the wallet of the client",
+      "reuse": "case"
+    },
+    {
+      "id": "firmWallet",
+      "kind": "wallet",
+      "chain": "tron",
+      "label": "the payment firm's wallet",
+      "reuse": "case"
+    }
+  ],
+  "steps": [
+    {
+      "id": "send",
+      "kind": "move",
+      "say": "The client sends a stablecoin to the payment firm's wallet.",
+      "from": "client",
+      "to": "firmWallet",
+      "via": "chain",
+      "asset": "out",
+      "amount": {
+        "of": "value",
+        "share": [
+          1,
+          1
+        ]
+      },
+      "pays": "own",
+      "split": "uneven",
+      "times": [
+        1,
+        4
+      ],
+      "start": {
+        "after": "case",
+        "hours": [
+          0,
+          24
+        ]
+      },
+      "between": {
+        "hours": [
+          1,
+          24
+        ]
+      },
+      "need": "required",
+      "varies": "rotating",
+      "basis": {
+        "kind": "reported",
+        "ref": "S57",
+        "pages": "36",
+        "note": "The report describes clients who sent a stablecoin to the firm. The count of 1 to 4 transfers and the waits are assumed. The report names a dollar stablecoin but no chain. The Tron chain is assumed."
+      }
+    }
+  ]
+}

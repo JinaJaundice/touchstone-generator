@@ -94,7 +94,8 @@ ${table(PATTERN_FIELDS)}
 
 One row for each party of each case that a pattern of the library planted. A
 party is a customer of the bank or an outside party that takes part in the case,
-and it belongs to one part.
+and it belongs to one use of a part. A pattern can name a part more than once,
+and the field part then tells the uses apart.
 
 ${table(PARTY_FIELDS)}
 

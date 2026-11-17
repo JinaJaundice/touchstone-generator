@@ -1,14 +1,15 @@
 /* The expander: drawPlan makes every random draw of one case and price makes none. A typed copy of the reference
    implementation of the pattern library, with the same functions and the same order of draws, so that a stored case of
-   the reference matches the case that this file makes. The 2 file formats are in ./types.
+   the reference matches the case that this file makes. The 2 file formats are in ./types. A pattern may name a hiding part more than once, so each place of a part in the order of the
+   pattern is a use, and every key and field of a plan that holds a part holds the id of the use.
 
    ORDER OF DRAWS. Every draw comes from the one generator r. A Range draws exactly one number, even when low equals high,
    and an absent Wait counts as [0,0] and still draws one. No count depends on size, speed or bankSees, so the sequence
    is the same for every setting. (settings.atMax = true takes the upper end of every Range, plants every supporting
    step and draws nothing: it is only for check 10 of the validator.)
      Rule 1  no draw.
-     Rule 2  1 draw for the value number u; then 1 draw (int) for the count of each customer party, in part order and then party order.
-     Rule 3  parts in order source, hiding..., cash-out. Before a part's steps (not the first part) the hand-off takes 1 draw (int 1..30).
+     Rule 2  1 draw for the value number u; then 1 draw (int) for the count of each customer party, in order of use and then party order.
+     Rule 3  uses in order source, hiding..., cash-out. Before the steps of a use (not the first use) the hand-off takes 1 draw (int 1..30).
              Per step: a supporting step draws 1 number (planted if below chance); if not planted it draws nothing more.
              A step runs once, or once per leg of the step it follows (start.per), or once per member (each), or both
              (legs outside, members inside). Each run draws in this order, and a run is finished before the next starts:
@@ -21,10 +22,10 @@
              (of-forms) or W (gbp, under); W via picks, then W more if gather, if via is a list.
      Rule 4  hand-off: the 1 draw above.   Rules 5 to 7  no draw. */
 
-import { resolveAssets, PAIRS, RAILS } from "./types";
+import { resolveAssets, legChain, partyChains, usesOf, RAILS } from "./types";
 import type {
   Amount, BankSees, Chain, CaseLeg, CaseParty, ChainStep, LegRole, LegSpec, MoveStep, Part, PartKind, PartLookup,
-  Pair, Pattern, Plan, PlanLeg, PlanParty, PlanRun, PlanSettings, PricedCase, Range, SeenBy, SplitStep, Step, Via, Wait,
+  Pattern, Plan, PlanLeg, PlanParty, PlanRun, PlanSettings, PricedCase, Range, SeenBy, SplitStep, Step, Via, Wait,
   PartyKind, Asset,
 } from "./types";
 import { hashSeed, mulberry32, type Rng } from "../../rng";
@@ -62,7 +63,8 @@ export function drawPlan(pattern: Pattern, partsById: PartLookup, settings: Plan
   const defs = [pattern.parts.source, ...pattern.parts.hiding, pattern.parts.cashOut].map(get);
   const assets = resolveAssets(pattern, partsById); // rule 1
   if (!assets) throw new Error(`${pattern.id}: the assets do not join`);
-  const P = defs.map((def, i) => ({ def, end: def.kind, in: assets[i].in, out: assets[i].out }));
+  const uses = usesOf(pattern), chainsOf = partyChains(pattern, partsById); // the id of each use, and the chains on which a payment can name each party
+  const P = defs.map((def, i) => ({ def, use: uses[i], end: def.kind, in: assets[i].in, out: assets[i].out }));
   // draw helpers: one number from r each
   const flt = (g: Range): number => (atMax ? g[1] : g[0] + r() * (g[1] - g[0]));
   const int = (g: Range): number => (atMax ? g[1] : g[0] + Math.floor(r() * (g[1] - g[0] + 1)));
@@ -79,20 +81,20 @@ export function drawPlan(pattern: Pattern, partsById: PartLookup, settings: Plan
   };
   // rule 2
   const u = r(), counts: Record<string, number> = {};
-  for (const p of P) for (const q of p.def.parties) if (q.kind === "customer") counts[`${p.def.id}.${q.id}`] = int(q.count ?? [1, 1]);
+  for (const p of P) for (const q of p.def.parties) if (q.kind === "customer") counts[`${p.use}.${q.id}`] = int(q.count ?? [1, 1]);
 
   const legs: Draft[] = [], parties = new Map<string, PlanParty>(), runs: PlanRun[] = [], nth: Record<string, number> = {};
   const stepLegs: Record<string, Draft[]> = {}, stepEnd: Record<string, number> = {};
   let ci = 0, runN = 0;
   const seesEnd = (end: PartKind): boolean => sees === "both" || sees === end;
-  const reg = (key: string, group: string, p: { def: Part; end: PartKind }, kind: PartyKind, label: string, chain: Chain | undefined, cust?: boolean): string => {
-    if (!parties.has(key)) parties.set(key, { key, group, part: p.def.id, end: p.end, kind, label, chain: chain ?? null, cust: !!cust });
+  const reg = (key: string, group: string, p: { use: string; end: PartKind }, kind: PartyKind, label: string, chain: Chain | undefined, cust?: boolean): string => {
+    if (!parties.has(key)) parties.set(key, { key, group, part: p.use, end: p.end, kind, label, chain: chain ?? null, cust: !!cust });
     return key;
   };
   // rule 5: the key of a party. A customer ends #member (member 1 unless the step runs for each member);
   // a party with reuse "leg" is new for each leg that names it; others are one party for the case.
   const ref = (pi: number, id: string, ctx: Ctx, scope: Record<string, string>): string => {
-    const p = P[pi], q = p.def.parties.find((x) => x.id === id), base = `${p.def.id}.${id}`;
+    const p = P[pi], q = p.def.parties.find((x) => x.id === id), base = `${p.use}.${id}`;
     if (!q) throw new Error(`${p.def.id}: names no party (${id})`);
     if (q.kind === "customer")
       return reg(`${base}#${ctx[id] ?? 1}`, base, p, seesEnd(p.end) ? "customer" : "outside-account", q.label, q.chain, true);
@@ -102,22 +104,20 @@ export function drawPlan(pattern: Pattern, partsById: PartLookup, settings: Plan
     }
     return reg(base, base, p, q.kind, q.label, q.chain);
   };
-  // new wallets of a chain or a split are keyed <part>.<step id>#n
+  // new wallets of a chain or a split are keyed <use id>.<step id>#n
   const fresh = (pi: number, step: Step, kind: PartyKind, i: number): string =>
-    reg(`${P[pi].def.id}.${step.id}#${i}`, `${P[pi].def.id}.${step.id}`, P[pi], kind, `a new ${kind}`, undefined);
+    reg(`${P[pi].use}.${step.id}#${i}`, `${P[pi].use}.${step.id}`, P[pi], kind, `a new ${kind}`, undefined);
   // rules 6 and 7 for one leg: its asset and chain, and who sees it
   const add = (pi: number, o: AddArgs): Draft => {
-    const p = P[pi], pair: Pair | null = o.asset === "in" ? p.in : o.asset === "out" ? p.out : null;
-    const sym = pair ? pair.split("@")[0] : o.asset, hit: string | undefined = pair ?? [p.in, p.out, ...PAIRS].find((x) => x.startsWith(sym + "@"));
-    const chain = (o.via === "chain" || o.via === "bank-crypto") && sym !== "XMR" && hit ? (hit.split("@")[1] as Chain) : null;
+    const p = P[pi], { sym, chain } = legChain(o.via, o.asset, { in: p.in, out: p.out });
     const cust = (k: string): boolean => parties.get(k)?.kind === "customer";
     const seenBy: SeenBy = (RAILS as readonly string[]).includes(o.via) && (cust(o.from) || cust(o.to)) ? "bank" : o.via === "chain" && sym !== "XMR" ? "chain" : "none";
-    const leg: Draft = { ci: ci++, part: p.def.id, step: o.step, minute: o.minute, from: o.from, to: o.to, via: o.via, asset: sym, chain, seenBy,
+    const leg: Draft = { ci: ci++, part: p.use, step: o.step, minute: o.minute, from: o.from, to: o.to, via: o.via, asset: sym, chain, seenBy,
       say: o.say, legRole: o.legRole ?? null, need: o.need, pays: o.pays ?? "case", spec: o.spec, run: o.run, first: !!o.first, ctx: o.ctx ?? {} };
     legs.push(leg);
     return leg;
   };
-  const newRun = (pi: number, step: { id: string }, kind: PlanRun["kind"], n: number): number => { runs.push({ id: ++runN, part: P[pi].def.id, step: step.id, kind, n }); return runN; };
+  const newRun = (pi: number, step: { id: string }, kind: PlanRun["kind"], n: number): number => { runs.push({ id: ++runN, part: P[pi].use, step: step.id, kind, n }); return runN; };
   const picks = (via: Via | Via[], n: number): number[] | null => (Array.isArray(via) ? Array.from({ length: n }, () => int([0, via.length - 1])) : null);
   const viaAt = (via: Via | Via[], vp: number[] | null, k: number): Via => (Array.isArray(via) && vp ? via[vp[k]] : (via as Via));
   const drawAmt = (am: Amount, n: number): AmountDraw => ("of" in am ? { s: flt(am.share) }
@@ -147,7 +147,7 @@ export function drawPlan(pattern: Pattern, partsById: PartLookup, settings: Plan
   // and then sends everything that is left onwards. The peel leg has the minute of the leg that follows it.
   const chainRun = (pi: number, step: ChainStep, anchor: number, ctx: Ctx, par: Draft | null): void => {
     const th = step.through, pl = step.peel, fromHop = pl?.fromHop ?? 1;
-    const N = "party" in th ? counts[`${P[pi].def.id}.${th.party}`] : int(th.count), t0 = wait(step.start);
+    const N = "party" in th ? counts[`${P[pi].use}.${th.party}`] : int(th.count), t0 = wait(step.start);
     const gaps = Array.from({ length: N }, () => wait(step.between ?? ZERO)), d = drawAmt(step.amount, 1);
     const peels: number[] = []; if (pl) for (let i = fromHop; i <= N; i++) peels.push(flt(pl.share));
     const vp = picks(step.via, N + 1), pv = pl && pl.via ? picks(pl.via, peels.length) : null, run = newRun(pi, step, "chain", N);
@@ -192,19 +192,19 @@ export function drawPlan(pattern: Pattern, partsById: PartLookup, settings: Plan
   P.forEach((p, pi) => {
     let entryT = 0;
     if (pi > 0) { // rule 4: the hand-off leg
-      const prev = P[pi - 1], last = Math.max(0, ...legs.filter((l) => l.part === prev.def.id).map((l) => l.minute));
+      const prev = P[pi - 1], last = Math.max(0, ...legs.filter((l) => l.part === prev.use).map((l) => l.minute));
       entryT = last + int([1, 30]);
       const label = p.def.parties.find((q) => q.id === entryOf(p.def))?.label ?? "";
       add(pi, { step: "handoff", minute: entryT, from: ref(pi - 1, exitOf(prev.def), {}, {}), to: ref(pi, entryOf(p.def), {}, {}), via: "chain", asset: "in",
         say: `The funds move to ${label}.`, need: "required", run: newRun(pi, { id: "handoff" }, "move", 1), first: true, spec: { form: "all" } });
     }
     for (const step of p.def.steps) {
-      const sk = `${p.def.id}.${step.id}`, a = step.start.after;
-      const ref0 = a === "case" ? 0 : a === "entry" ? entryT : stepEnd[`${p.def.id}.${a}`];
+      const sk = `${p.use}.${step.id}`, a = step.start.after;
+      const ref0 = a === "case" ? 0 : a === "entry" ? entryT : stepEnd[`${p.use}.${a}`];
       if (step.need === "supporting" && !(atMax || r() < (step.chance ?? 0))) { stepLegs[sk] = []; stepEnd[sk] = ref0; continue; }
-      const parents: (Draft | null)[] = step.start.per === "leg" ? stepLegs[`${p.def.id}.${a}`] : [null];
+      const parents: (Draft | null)[] = step.start.per === "leg" ? stepLegs[`${p.use}.${a}`] : [null];
       const each = step.kind === "move" ? step.each : undefined;
-      const members: (number | null)[] = each ? Array.from({ length: counts[`${p.def.id}.${each}`] }, (_, i) => i + 1) : [null];
+      const members: (number | null)[] = each ? Array.from({ length: counts[`${p.use}.${each}`] }, (_, i) => i + 1) : [null];
       const from = legs.length;
       for (const par of parents) for (const m of members)
         runStep(pi, step, par ? par.minute : ref0, { ...(par ? par.ctx : {}), ...(m && each ? { [each]: m } : {}) }, par);
@@ -217,13 +217,13 @@ export function drawPlan(pattern: Pattern, partsById: PartLookup, settings: Plan
   legs.sort((x, y) => x.minute - y.minute || x.ci - y.ci);
   const seqOf = new Map(legs.map((l, i) => [l.ci, i + 1]));
   for (const l of legs) { // a party on a chain takes the chain of the first on-chain leg it is in, unless the file names one
-    if (l.chain) for (const k of [l.from, l.to]) { const q = parties.get(k); if (q && !q.chain && !OFF_CHAIN.includes(q.kind)) q.chain = l.chain; }
+    if (l.chain) for (const k of [l.from, l.to]) { const q = parties.get(k); if (q && !q.chain && !OFF_CHAIN.includes(q.kind) && (chainsOf.get(q.group)?.size ?? 0) <= 1) q.chain = l.chain; }
   }
   const src = defs[0];
   if (src.kind !== "source") throw new Error(`${pattern.id}: the first part is no source part`);
   const sv = src.value;
   return {
-    pattern: pattern.id, settings: { size, speed, bankSees: sees }, assets: P.map((p) => ({ part: p.def.id, in: p.in, out: p.out })),
+    pattern: pattern.id, settings: { size, speed, bankSees: sees }, assets: P.map((p) => ({ part: p.use, in: p.in, out: p.out })),
     thresholds: { cashThreshold: settings.cashThreshold ?? null, travelRuleThreshold: settings.travelRuleThreshold ?? null },
     counts, runs, value: { u, part: src.id, log: pattern.value?.log ?? ("log" in sv ? sv.log : null), steps: "from" in sv, cap: "capByBalance" in sv ? sv.capByBalance ?? null : null },
     parties: [...parties.values()],

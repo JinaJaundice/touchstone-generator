@@ -1,0 +1,92 @@
+{
+  "schema": "touchstone-part/1",
+  "id": "drug-proceeds-in-crypto",
+  "kind": "source",
+  "status": "tested",
+  "title": "Drug proceeds already held in crypto by a broker",
+  "short": "Drug proceeds in crypto",
+  "summary": "A broker sends drug proceeds, already held in crypto, to the launderer's wallet in 1 to 3 transfers. A case follows one slice of the proceeds.",
+  "references": [
+    {
+      "id": "S57",
+      "pages": "26 to 28"
+    }
+  ],
+  "value": {
+    "log": [
+      40000,
+      1500000
+    ],
+    "basis": {
+      "kind": "reported",
+      "ref": "S57",
+      "pages": "28",
+      "note": "The report says that cartels had already placed drug money into crypto before the cash-out service received it. A case follows one slice, so its size is assumed, and a pattern may set a smaller slice."
+    }
+  },
+  "traceClass": "money laundering",
+  "gives": [
+    "USDT@tron"
+  ],
+  "exit": "launderer",
+  "parties": [
+    {
+      "id": "broker",
+      "kind": "broker",
+      "label": "the broker that holds the proceeds",
+      "reuse": "case"
+    },
+    {
+      "id": "launderer",
+      "kind": "wallet",
+      "chain": "tron",
+      "label": "the launderer's wallet",
+      "reuse": "case"
+    }
+  ],
+  "steps": [
+    {
+      "id": "send",
+      "kind": "move",
+      "say": "The broker sends the proceeds in a stablecoin to the launderer's wallet.",
+      "from": "broker",
+      "to": "launderer",
+      "via": "chain",
+      "asset": "out",
+      "amount": {
+        "of": "value",
+        "share": [
+          1,
+          1
+        ]
+      },
+      "pays": "own",
+      "split": "uneven",
+      "times": [
+        1,
+        3
+      ],
+      "start": {
+        "after": "case",
+        "hours": [
+          0,
+          24
+        ]
+      },
+      "between": {
+        "hours": [
+          1,
+          12
+        ]
+      },
+      "need": "required",
+      "varies": "ephemeral",
+      "basis": {
+        "kind": "reported",
+        "ref": "S57",
+        "pages": "28",
+        "note": "The report says that cartel clients had already placed drug money into crypto. The stablecoin on the Tron chain, the broker as sender, the count of 1 to 3 transfers and the waits are assumed."
+      }
+    }
+  ]
+}

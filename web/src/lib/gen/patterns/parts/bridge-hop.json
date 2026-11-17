@@ -1,0 +1,126 @@
+{
+  "schema": "touchstone-part/1",
+  "id": "bridge-hop",
+  "kind": "hiding",
+  "status": "tested",
+  "title": "Funds moved to another chain through a bridge",
+  "short": "Bridge hop",
+  "summary": "The funds are locked on one chain and issued on another. Tracing on one chain then loses the context.",
+  "references": [
+    {
+      "id": "S57",
+      "pages": "7, 30"
+    }
+  ],
+  "routes": [
+    {
+      "from": "ETH@ethereum",
+      "to": "BTC@bitcoin"
+    },
+    {
+      "from": "USDT@ethereum",
+      "to": "USDT@tron"
+    },
+    {
+      "from": "USDT@tron",
+      "to": "USDT@ethereum"
+    },
+    {
+      "from": "BTC@bitcoin",
+      "to": "ETH@ethereum"
+    }
+  ],
+  "entry": "holder",
+  "exit": "fresh",
+  "hides": {
+    "chance": 0.4,
+    "basis": {
+      "kind": "assumed",
+      "note": "No source read for this design publishes how often a screening tool loses the link at this method. The value is an assumption and means that the trail is lost in 40 cases in 100."
+    }
+  },
+  "parties": [
+    {
+      "id": "holder",
+      "kind": "wallet",
+      "label": "the wallet that holds the funds",
+      "reuse": "case"
+    },
+    {
+      "id": "span",
+      "kind": "bridge",
+      "label": "a bridge between 2 chains",
+      "reuse": "case"
+    },
+    {
+      "id": "fresh",
+      "kind": "wallet",
+      "label": "a new wallet on the other chain",
+      "reuse": "case"
+    }
+  ],
+  "steps": [
+    {
+      "id": "lock",
+      "kind": "move",
+      "say": "The funds are locked at the bridge on the first chain.",
+      "from": "holder",
+      "to": "span",
+      "via": "chain",
+      "asset": "in",
+      "amount": {
+        "of": "held",
+        "share": [
+          1,
+          1
+        ]
+      },
+      "start": {
+        "after": "entry",
+        "minutes": [
+          5,
+          120
+        ]
+      },
+      "need": "required",
+      "varies": "rotating",
+      "basis": {
+        "kind": "reported",
+        "ref": "S57",
+        "pages": "30",
+        "note": "The report says that tokens are locked on the source chain. The wait is assumed."
+      }
+    },
+    {
+      "id": "issue",
+      "kind": "move",
+      "say": "The funds are issued to a new wallet on the second chain.",
+      "from": "span",
+      "to": "fresh",
+      "via": "chain",
+      "asset": "out",
+      "amount": {
+        "of": "held",
+        "share": [
+          1,
+          1
+        ]
+      },
+      "start": {
+        "after": "lock",
+        "minutes": [
+          2,
+          30
+        ]
+      },
+      "need": "required",
+      "varies": "ephemeral",
+      "basis": {
+        "kind": "reported",
+        "ref": "S57",
+        "pages": "30",
+        "note": "The report says that tokens are issued on the destination chain. The wait of 2 to 30 minutes is assumed, and the bridge's own fee is not modelled."
+      }
+    }
+  ]
+}

@@ -1,0 +1,238 @@
+{
+  "schema": "touchstone-part/1",
+  "id": "shell-company-cash-out",
+  "kind": "cash-out",
+  "status": "tested",
+  "family": "aml",
+  "title": "Paid out through new company accounts and taken as cash",
+  "short": "Shell company cash-out",
+  "summary": "A cash-out service converts the funds and pays the first company's account. The companies move most of the money between their accounts, and the last one takes cash out at a counter.",
+  "references": [
+    {
+      "id": "S57",
+      "pages": "28"
+    }
+  ],
+  "takes": "any",
+  "entry": "service",
+  "parties": [
+    {
+      "id": "service",
+      "kind": "swap-service",
+      "label": "a service that converts the funds",
+      "reuse": "case"
+    },
+    {
+      "id": "first",
+      "kind": "customer",
+      "role": "launderer",
+      "label": "the first company that receives the money",
+      "count": [
+        1,
+        1
+      ],
+      "pick": {
+        "segments": [
+          "sme"
+        ],
+        "openedWithinDays": 365
+      }
+    },
+    {
+      "id": "middle",
+      "kind": "customer",
+      "role": "launderer",
+      "label": "a company that passes the money on",
+      "count": [
+        1,
+        2
+      ],
+      "pick": {
+        "segments": [
+          "sme"
+        ],
+        "openedWithinDays": 365
+      }
+    },
+    {
+      "id": "last",
+      "kind": "customer",
+      "role": "launderer",
+      "label": "the last company, which takes out cash",
+      "count": [
+        1,
+        1
+      ],
+      "pick": {
+        "segments": [
+          "sme"
+        ],
+        "openedWithinDays": 365
+      }
+    },
+    {
+      "id": "cash",
+      "kind": "cash",
+      "label": "cash in hand",
+      "reuse": "case"
+    }
+  ],
+  "steps": [
+    {
+      "id": "convert",
+      "kind": "move",
+      "say": "The service converts the funds into pounds.",
+      "from": "service",
+      "to": "service",
+      "via": "off-record",
+      "asset": "in",
+      "amount": {
+        "of": "held",
+        "share": [
+          1,
+          1
+        ]
+      },
+      "start": {
+        "after": "entry",
+        "hours": [
+          1,
+          24
+        ]
+      },
+      "need": "required",
+      "varies": "rotating",
+      "basis": {
+        "kind": "reported",
+        "ref": "S57",
+        "pages": "28",
+        "note": "The report describes a cash-out service that took cryptocurrency from clients and converted it into cash through bank accounts. The order of the steps and the wait are assumed."
+      }
+    },
+    {
+      "id": "payout",
+      "kind": "move",
+      "say": "The service pays the first company's account in 2 to 5 payments.",
+      "from": "service",
+      "to": "first",
+      "via": "fps",
+      "asset": "GBP",
+      "amount": {
+        "of": "held",
+        "share": [
+          1,
+          1
+        ]
+      },
+      "split": "uneven",
+      "times": [
+        2,
+        5
+      ],
+      "start": {
+        "after": "convert",
+        "hours": [
+          1,
+          48
+        ]
+      },
+      "between": {
+        "hours": [
+          1,
+          24
+        ]
+      },
+      "need": "required",
+      "varies": "rotating",
+      "legRole": "integration",
+      "basis": {
+        "kind": "reported",
+        "ref": "S57",
+        "pages": "28",
+        "note": "The report says that shell-company bank accounts received the funds after the banks were misled about the business. The counts and waits are assumed."
+      }
+    },
+    {
+      "id": "move",
+      "kind": "chain",
+      "say": "The companies move most of the money between their accounts.",
+      "from": "first",
+      "to": "last",
+      "via": "fps",
+      "asset": "GBP",
+      "through": {
+        "party": "middle"
+      },
+      "amount": {
+        "of": "held",
+        "share": [
+          0.7,
+          0.95
+        ]
+      },
+      "start": {
+        "after": "payout",
+        "days": [
+          0,
+          3
+        ]
+      },
+      "between": {
+        "hours": [
+          1,
+          48
+        ]
+      },
+      "need": "required",
+      "varies": "rotating",
+      "legRole": "layering",
+      "basis": {
+        "kind": "assumed",
+        "note": "The report does not describe the moves between the companies. The count of 3 or 4 companies, the single payment from each company to the next, the share of 70% to 95% and the waits are assumed."
+      }
+    },
+    {
+      "id": "takeOut",
+      "kind": "move",
+      "say": "The last company takes cash out at a counter over several days.",
+      "from": "last",
+      "to": "cash",
+      "via": "cash-out",
+      "asset": "cash",
+      "amount": {
+        "of": "held",
+        "share": [
+          0.6,
+          0.85
+        ]
+      },
+      "split": "uneven",
+      "times": [
+        4,
+        10
+      ],
+      "start": {
+        "after": "move",
+        "days": [
+          0,
+          2
+        ]
+      },
+      "between": {
+        "days": [
+          1,
+          2
+        ]
+      },
+      "need": "required",
+      "varies": "rotating",
+      "legRole": "cash-out",
+      "basis": {
+        "kind": "reported",
+        "ref": "S57",
+        "pages": "28",
+        "note": "The report says that cash was withdrawn and carried away. The share of 60% to 85%, the count of 4 to 10 withdrawals and the waits of 1 or 2 days are assumed."
+      }
+    }
+  ]
+}

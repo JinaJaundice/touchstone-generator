@@ -1,4 +1,4 @@
-// Test of the pattern library (src/lib/gen/patterns/). It holds 13 checks, and every one covers every pattern of the library as the registry holds it.
+// Test of the pattern library (src/lib/gen/patterns/). It holds tests L1 to L13, and every one covers every pattern of the library as the registry holds it.
 // L3, L6, L7, L8, L9 (second half) and L10 read 16 data sets made one at a time: A1 to A3 (every pattern at its own rate and end, seeds 20260904, 77 and 4242),
 // B, C and D (patterns with 2 customer ends set to both ends, the source and the cash-out), E (A1 again), F (the ransom pattern alone at both ends), G1 to G5 (the
 // peel-chain pattern alone at a rate of 5, seeds 1 to 5), H (every pattern at a rate of 5 with the cap of rows at 1,000) and I1 and I2 (the private bank and the challenger bank).
@@ -8,14 +8,16 @@
 //   L2  drawPlan and price give the plan, the priced case and the settled case that the stored case of the reference
 //       implementation holds (scripts/fixtures/library-golden/).
 //   L3  every pattern plants a case in A1 to A3, and every pattern with 2 customer ends plants one in B, C and D.
-//   L4  in 200 cases of each pattern every required step is present, each count and each wait is inside its range, and
+//   L4  in 200 cases of each pattern every required step of each use is present, each count and each wait is inside its range, and
 //       each supporting step is present in its stated share of cases within 0.1. At size 2 and speed 2 the value of a
 //       case is twice as large where it has a range, and the case is between 0.4 and 0.65 of its length.
-//   L5  in every one of those cases no party's funds go below 0 and the funds add up (rule 5 of the specification).
+//   L5  in every one of those cases no party's funds go below 0 and the funds add up (rule 5 of the specification). In each pattern that names a part more than once, at the size 1 and the speed 1 and
+//       at the size 4 and the speed 0.25, the parties hold each use, each hand-off joins 2 different uses and no use pays out more than it took in.
 //   L6  every row of parties and caseLegs and every planted pattern of a library key fits the dictionary. In A1 to A3, B to D, I1 and I2 each row that the bank sees
 //       names its transaction, each library transaction is named once, a replay of each case from what its customers held leaves no party more than 1 penny below 0,
 //       the window and the main account of each planted pattern are right, I1 has no cash transaction and each cash transaction of I2 uses a partner counter.
-//   L7  A1 and E give the same hashes, and the rows of the ransom pattern in F and B are the same apart from the fields that the check names.
+//   L7  A1 and E give the same hashes, and the rows of the ransom pattern in F and B are the same apart from the fields that the check names. In a bank of 1,000 accounts, each of the 12 patterns
+//       at a rate of 5 alone and with all 12 on plants cases with the same day, minute, payer, payee and planned amount in each row, the cases of a pattern paired in their order.
 //   L8  the share of cases of G1 to G5 whose arriving Bitcoin carries the label "illicit" is within 0.07 of 0.95.
 //   L9  (first half) 1,000 segwit, Tron and Ethereum addresses are valid, the Tron and Ethereum addresses equal those of
 //       the prototype's functions, and sha256 of address.ts gives the digest of Node.js.
@@ -23,7 +25,12 @@
 //   L10 in H no pattern holds more than 1,000 rows of caseLegs, and the record names each pattern that stopped.
 //   L11 normaliseConfig gives the settings of a library pattern their values, limits and omissions.
 //   L12 in each of the 16 data sets the CSV files of the parties and of the planned payments read back with as many rows as the data set holds and the same values in 3 rows.
-// It prints one line for each check and exits with code 1 unless every check passes.
+//   L13 (1) in 200 plans of each pattern no payment with a chain names a party of another chain or a wallet without a chain. (2) In A1, A2, A3, B, C, D, I1 and I2
+//       no row of caseLegs with a chain names a party of the same case whose chain or whose address format is another one. (3) The validator refuses 3 changed copies of
+//       the part bridge-hop, by check 11, check 12 and check 13. (4) cutShortOf is true for the stored case of the bridge pattern without the payments of the step
+//       deposit of the use mixer~2, and false with every payment. (5) Over the same 200 plans, the groups of parties that hold no chain on a payment with a chain, with the customers left out,
+//       are the 4 services of the table of the design on uses and chains and no others.
+// It prints one line for each check and exits with code 1 unless every check passes. It prints 15 lines of checks, because it prints L9 in 2 halves and holds check L1b, and then the times of the data sets and a summary.
 //   npx esbuild scripts/qa-library.ts --bundle --platform=node --format=esm --outfile=.tmp/qa-library.mjs && node .tmp/qa-library.mjs
 import { createHash } from "node:crypto";
 import { existsSync, readFileSync, readdirSync } from "node:fs";
@@ -34,7 +41,7 @@ import { PARTS, PATTERNS } from "../src/lib/gen/patterns/index";
 import { labelsOf } from "../src/lib/gen/patterns/labels";
 import { drawPlan, price } from "../src/lib/gen/patterns/expand";
 import { validatePart, validatePattern } from "../src/lib/gen/patterns/validate";
-import { CLASSES } from "../src/lib/gen/patterns/types";
+import { CLASSES, partIdOf, usesOf } from "../src/lib/gen/patterns/types";
 import type { Part, Pattern, Plan, PricedCase, Range, Step, Wait } from "../src/lib/gen/patterns/types";
 import { classOf } from "../src/lib/gen/walletClass";
 import { DEFAULT_CONFIG, normaliseConfig } from "../src/lib/gen/config";
@@ -44,7 +51,7 @@ import { ARCHETYPES } from "../src/lib/gen/archetypes";
 import { caseLegsCsv, partiesCsv } from "../src/lib/gen/csv";
 import { CASE_LEG_COLUMNS, PARTY_COLUMNS, caseLegCell, partyCell } from "../src/lib/gen/parquet";
 import { CASE_LEG_FIELDS, PARTY_FIELDS, PATTERN_FIELDS, checkRecord } from "../src/lib/gen/dictionary";
-import { LIBRARY_ROW_CAP, setRowCap } from "../src/lib/gen/patterns/plant";
+import { LIBRARY_ROW_CAP, cutShortOf, setRowCap } from "../src/lib/gen/patterns/plant";
 import { makeEthAddress, makeSegwitAddress, makeTronAddress, sha256 } from "../src/lib/gen/address";
 import { isBitcoinAddress, isTronAddress, looksEthereum } from "./lib/btc";
 
@@ -98,7 +105,7 @@ function rule5(res: PricedCase): string[] {
 }
 const days = (res: PricedCase): number => Math.max(0, ...res.legs.map((l) => l.minute)) / 1440;
 const draw = (p: Pattern, seed: number, size = 1, speed = 1): Plan => drawPlan(p, PARTS, { size, speed, bankSees: p.bankSees }, mulberry32(seed));
-const partOf = (id: string): Part => { const x = PARTS.get(id); if (!x) throw new Error(`no part ${id}`); return x; };
+const partOf = (use: string): Part => { const x = PARTS.get(partIdOf(use)); if (!x) throw new Error(`no part ${partIdOf(use)}`); return x; };
 /** The minutes that a drawn wait can take at speed 1: the range in minutes, with at least 1 where the range reaches above 0. */
 function waitBounds(w: Wait | undefined): [number, number] {
   const u = w?.hours ? "hours" : w?.days ? "days" : "minutes", r: Range = w?.[u] ?? [0, 0];
@@ -185,10 +192,10 @@ const record = (id: string, name: string, fail: string | null): void => { result
 
 // ---------- L4 and L5 ----------
 {
-  let l4: string | null = null, l5: string | null = null;
+  let l4: string | null = null, l5: string | null = null, l5use: string | null = null;
   const note4 = (m: string): void => { l4 ??= m; }, note5 = (m: string): void => { l5 ??= m; };
   for (const p of PATTERNS) {
-    const order = [p.parts.source, ...p.parts.hiding, p.parts.cashOut];
+    const order = usesOf(p), multi = new Set(order.map(partIdOf)).size < order.length;
     const present = new Map<string, number>(); // supporting steps: the number of cases in which the step ran
     for (let seed = 1; seed <= 200; seed++) {
       const plan = draw(p, seed), res = price(plan), tag = `${p.id} seed ${seed}`;
@@ -196,6 +203,25 @@ const record = (id: string, name: string, fail: string | null): void => { result
       const rp = replay(res);
       if (rp.minHeld < 0) note5(`${tag}: a party's funds went below 0 (${rp.minHeld})`);
       for (const m of rule5(res)) note5(`${tag}: ${m}`);
+      // L5: in a pattern that names a part more than once, no use pays out more than it took in (whole pence, no tolerance)
+      // it runs at the size 1 and the speed 1 and again at the size 4 and the speed 0.25, and it holds that the parties hold each use and that each hand-off joins 2 different uses
+      if (multi) for (const [size, speed] of [[1, 1], [4, 0.25]] as const) {
+        const at = size === 1 ? res : price(draw(p, seed, size, speed)), where = `${tag} at size ${size} and speed ${speed}`;
+        const useOf = new Map(at.parties.map((q) => [q.key, q.part] as const));
+        for (const u of order) if (!at.parties.some((q) => q.part === u)) l5use ??= `${where}: no party of the plan holds the use ${u}`;
+        for (const l of at.legs) if (l.step === "handoff" && useOf.get(l.from) === useOf.get(l.to)) l5use ??= `${where}: the hand-off ${l.seq} joins the use ${useOf.get(l.from)} to itself`;
+        // the first use is the source use: it takes in nothing from another use, as the design says, so only the later uses are tested
+        for (const u of order.slice(1)) {
+          let took = 0, paid = 0;
+          for (const l of at.legs) {
+            const f = useOf.get(l.from), t = useOf.get(l.to);
+            if (f === t) continue;
+            if (t === u) took += pen(l.amount);
+            if (f === u) paid += pen(l.amount);
+          }
+          if (paid > took) l5use ??= `${where}: the use ${u} paid out ${paid / 100} and took in ${took / 100}`; // kept apart, so that a failure of the funds check does not hide it
+        }
+      }
       // L4: every required step has a leg
       for (const pid of order) for (const s of partOf(pid).steps) {
         if (s.need === "required" && !res.legs.some((l) => l.part === pid && l.step === s.id)) note4(`${tag}: required step ${pid}.${s.id} has no leg`);
@@ -254,12 +280,12 @@ const record = (id: string, name: string, fail: string | null): void => { result
     if (!(ratio > 0.4 && ratio < 0.65)) note4(`${p.id}: at speed 2 the length is ${ratio.toFixed(3)} of the length at speed 1, outside 0.4 to 0.65`);
   }
   record("L4", `${PATTERNS.length} patterns in 200 cases each: steps, counts, waits, chances, size and speed`, l4);
-  record("L5", `${PATTERNS.length} patterns in 200 cases each: no funds below 0, and the funds add up`, l5);
+  record("L5", `${PATTERNS.length} patterns in 200 cases each: no funds below 0, and the funds add up`, [l5, l5use].filter((m) => m !== null).join(" | ") || null);
 }
 
 // ---------- L9, first half: the addresses ----------
 {
-  // hex and tronAddress are copies of the 2 functions of the prototype in docs/designs/pattern-library/sources/prototype/planter/plant.ts (lines 117 to 126), with the same order of draws
+  // hex and protoTron are copies of the 2 address functions of the reference implementation of the planter, with the same order of draws
   const hex = (r: () => number, n: number): string => { let s = ""; for (let i = 0; i < n; i++) s += Math.floor(r() * 16).toString(16); return s; };
   const B58 = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
   const protoTron = (r: () => number): string => {
@@ -340,7 +366,7 @@ const record = (id: string, name: string, fail: string | null): void => { result
   const RANSOM = "ransom-through-a-mixer", PEEL = "stolen-funds-through-a-peel-chain";
   const ends = (end: "both" | "source" | "cash-out") => every((p) => (canBoth(p) ? { bankSees: end } : {}));
   /** Whose money a payment of a step moves: its own customer's, or the case's. A payment of a hand-off or of a chain or split step moves the case's. */
-  const paysOf = (partId: string, stepId: string): "case" | "own" => { const s = PARTS.get(partId)?.steps.find((x) => x.id === stepId); return s && s.kind === "move" ? s.pays ?? "case" : "case"; };
+  const paysOf = (use: string, stepId: string): "case" | "own" => { const s = partOf(use).steps.find((x) => x.id === stepId); return s && s.kind === "move" ? s.pays ?? "case" : "case"; };
 
   // the data sets, in the order of the design (item 19). L6 reads the data sets of the second list in full.
   const specs: { name: string; cfg: () => GenConfig; cap?: number }[] = [
@@ -383,13 +409,16 @@ const record = (id: string, name: string, fail: string | null): void => { result
     return out;
   };
 
-  const fails: Record<"L3" | "L6" | "L7" | "L8" | "L9" | "L10" | "L12", string | null> = { L3: null, L6: null, L7: null, L8: null, L9: null, L10: null, L12: null };
+  const fails: Record<"L3" | "L6" | "L7" | "L8" | "L9" | "L10" | "L12" | "L13", string | null> = { L3: null, L6: null, L7: null, L8: null, L9: null, L10: null, L12: null, L13: null };
   const note = (k: keyof typeof fails, m: string): void => { fails[k] ??= m; };
+  // L13 keeps the first message of each of its 5 statements, so that a record shows every statement that fails and not only the first to run
+  const first13: (string | null)[] = [null, null, null, null, null];
+  const note13 = (n: number, m: string): void => { first13[n - 1] ??= `statement ${n}: ${m}`; };
   const hashes = new Map<string, { txs: string; parties: string; caseLegs: string }>();
   const ransomRows = new Map<string, { parties: Party[]; legs: CaseLeg[] }>();
   const illicit = { cases: 0, withArrivals: 0, illicit: 0 };
   const timing: string[] = [];
-  let csvRows = 0, casesPlanted = 0, rowsChecked = 0, txsLinked = 0, addresses = 0, capSeen = 0;
+  let rowsOnChain = 0, csvRows = 0, casesPlanted = 0, rowsChecked = 0, txsLinked = 0, addresses = 0, capSeen = 0;
 
   for (const spec of specs) {
     const t0 = Date.now();
@@ -505,6 +534,23 @@ const record = (id: string, name: string, fail: string | null): void => { result
       if (listed.has(q.address)) note("L9", `${where} case ${q.caseId} ${q.key}: ${q.address} is an address of the wallet pool or of the OFAC list`);
     }
 
+    // L13, statement 2: no row with a chain names a party of the same case whose chain or whose address format is another one
+    if (txLinked.has(where)) {
+      const partyOf = new Map<string, Party>();
+      for (const q of ds.parties) partyOf.set(`${q.caseId}|${q.key}`, q);
+      const formatOk = (chain: string, a: string): boolean => (chain === "bitcoin" ? isBitcoinAddress(a) : chain === "ethereum" ? looksEthereum(a) : chain === "tron" ? isTronAddress(a) : false);
+      for (const r of ds.caseLegs) {
+        if (r.chain === null) continue;
+        rowsOnChain++;
+        for (const k of [r.from, r.to]) {
+          const q = partyOf.get(`${r.caseId}|${k}`);
+          if (!q) continue;
+          if (q.chain !== null && q.chain !== r.chain) note13(2, `${where} case ${r.caseId} payment ${r.seq}: the payment is on ${r.chain} and ${k} is on ${q.chain}`);
+          if (q.address !== null && !formatOk(r.chain, q.address)) note13(2, `${where} case ${r.caseId} payment ${r.seq}: the payment is on ${r.chain} and the address of ${k} has another format`);
+        }
+      }
+    }
+
     // L10
     if (where === "H") {
       const wanted = Math.max(1, Math.round((5 * ds.accounts.length) / 1000));
@@ -545,6 +591,38 @@ const record = (id: string, name: string, fail: string | null): void => { result
     else rf.legs.forEach((r, i) => { if (strip(r, ["caseId", "amount", "tx"]) !== strip(rb.legs[i], ["caseId", "amount", "tx"])) note("L7", `payment ${r.seq} of case ${i}: F and B differ (${strip(r, ["caseId", "amount", "tx"])} against ${strip(rb.legs[i], ["caseId", "amount", "tx"])})`); });
   }
 
+  // L7, the second statement: for each of the 12 patterns, the cases of the pattern alone and the cases of the pattern with all 12 on have the same day, minute, payer, payee and planned amount in each row.
+  // The bank has 1,000 accounts and each pattern a rate of 5, so each pattern plants 5 cases and the 13 data sets are made in a few seconds.
+  const t7 = Date.now();
+  let fail7b: string | null = null;
+  const note7b = (m: string): void => { fail7b ??= `second statement: ${m}`; };
+  let pairs7 = 0, rows7 = 0;
+  {
+    const small = (library: Record<string, LibrarySetting>): GenConfig => ({ ...DEFAULT_CONFIG, seed: 20260904, accounts: 1000, library });
+    const rowsOf = (ds: Dataset, id: string): { caseId: number; rows: CaseLeg[] }[] => {
+      const byCase = new Map<number, CaseLeg[]>();
+      for (const r of ds.caseLegs) if (r.pattern === id) (byCase.get(r.caseId) ?? byCase.set(r.caseId, []).get(r.caseId)!).push(r);
+      return (ds.library?.cases ?? []).filter((c) => c.pattern === id).map((c) => ({ caseId: c.caseId, rows: (byCase.get(c.caseId) ?? []).sort((x, y) => x.seq - y.seq) }));
+    };
+    const dsAll = generate(small(every(() => ({ per1k: 5 }))), wallets);
+    for (const p of PATTERNS) {
+      const mine = rowsOf(generate(small(only(p.id, { per1k: 5 })), wallets), p.id), theirs = rowsOf(dsAll, p.id);
+      if (mine.length < 3) note7b(`${p.id}: ${mine.length} cases alone, fewer than 3`);
+      if (mine.length !== theirs.length) { note7b(`${p.id}: ${mine.length} cases alone and ${theirs.length} with all 12 on`); continue; }
+      mine.forEach((a, i) => {
+        const b = theirs[i];
+        pairs7++;
+        if (a.rows.length !== b.rows.length) { note7b(`${p.id} case ${i + 1}: ${a.rows.length} rows alone and ${b.rows.length} with all 12 on`); return; }
+        a.rows.forEach((r, j) => {
+          const o = b.rows[j];
+          rows7++;
+          for (const f of ["day", "minute", "from", "to", "planned"] as const) if (r[f] !== o[f]) note7b(`${p.id} case ${i + 1} payment ${r.seq}: ${f} is ${r[f]} alone and ${o[f]} with all 12 on`);
+        });
+      });
+    }
+  }
+  timing.push(`L7 pairs ${((Date.now() - t7) / 1000).toFixed(1)} s`);
+
   // L8: the label of a wallet that pays the bank at the cash-out end is "illicit" unless a draw is below the chance that the trail was lost, which is 1 less
   // the product of (1 less hides.chance) over the hiding parts. The only hiding part of the pattern is peel-chain, whose hides.chance is 0.05 in its file,
   // so the expected share of cases with the label "illicit" is 1 - 0.05 = 0.95. A case counts where it has an arriving payment, and counts as illicit where each arriving payment carries the label.
@@ -556,11 +634,63 @@ const record = (id: string, name: string, fail: string | null): void => { result
 
   record("L3", `each pattern plants a case in A1 to A3, and each pattern with 2 customer ends in B to D (${casesPlanted} cases in ${specs.length} data sets)`, fails.L3);
   record("L6", `${rowsChecked} rows fit the dictionary, ${txsLinked} library transactions match their rows, the replay of each case holds, windows and rails are right`, fails.L6);
-  record("L7", "A1 and E give the same hashes, and the rows of the ransom pattern in F and B differ in the named fields only", fails.L7);
+  record("L7", `A1 and E give the same hashes, the rows of the ransom pattern in F and B differ in the named fields only, and ${pairs7} cases of ${PATTERNS.length} patterns (${rows7} rows) keep their day, minute, payer, payee and planned amount whether the pattern is alone or all ${PATTERNS.length} are on`, [fails.L7, fail7b].filter((m) => m !== null).join(" | ") || null);
   record("L8", `${illicit.illicit} of ${illicit.withArrivals} cases of G1 to G5 have the label "illicit" on arriving Bitcoin (expected share 0.95 within 0.07)`, fails.L8);
   record("L9", `${addresses} generated addresses of parties are valid for their chain and are no address of the wallet pool or of the OFAC list`, fails.L9);
   record("L10", `H reaches the cap of 1,000 rows (${capSeen} patterns stopped) and each stopped pattern is named in the record`, fails.L10);
   record("L12", `the CSV files of the parties and of the planned payments read back with the same number of rows and the same values in 3 rows each (${csvRows} rows over ${specs.length} data sets)`, fails.L12);
+  // L13, statement 1: in 200 plans of each pattern no payment with a chain names a party of another chain or a wallet without a chain
+  // L13, statement 5: over the same plans, the groups of parties that hold no chain on a payment with a chain are the 4 services of the table of the design on uses and chains
+  const SERVICES = new Set([
+    "stolen-funds-through-bridge-and-mixers|bridge-hop.span", "investment-scam-to-stablecoin|swap-bridge-swap.aggregator",
+    "investment-scam-to-stablecoin|high-risk-exchange-pass.venue", "stolen-funds-through-defi-to-mules|privacy-coin-hop.swapper",
+  ]);
+  const chainless = new Set<string>();
+  let plansChecked = 0;
+  for (const p of PATTERNS) for (let seed = 1; seed <= 200; seed++) {
+    const plan = draw(p, seed), byKey = new Map(plan.parties.map((q) => [q.key, q] as const));
+    plansChecked++;
+    for (const l of plan.legs) {
+      if (l.chain === null) continue;
+      for (const k of [l.from, l.to]) {
+        const q = byKey.get(k);
+        if (!q) { note13(1, `${p.id} seed ${seed}: payment ${l.seq} names ${k}, which is no party of the plan`); continue; }
+        if (q.chain !== null && q.chain !== l.chain) note13(1, `${p.id} seed ${seed}: payment ${l.seq} is on ${l.chain} and ${k} is on ${q.chain}`);
+        if (q.chain === null && q.kind === "wallet") note13(1, `${p.id} seed ${seed}: payment ${l.seq} names the wallet ${k}, which has no chain`);
+        if (q.chain === null && !q.cust) chainless.add(`${p.id}|${q.group}`);
+      }
+    }
+  }
+  for (const s of SERVICES) if (!chainless.has(s)) note13(5, `${s.split("|")[1]} in ${s.split("|")[0]} always holds a chain, though the design leaves it without one`);
+  for (const s of chainless) if (!SERVICES.has(s)) note13(5, `${s.split("|")[1]} in ${s.split("|")[0]} holds no chain on a payment with a chain and is not one of the 4 services`);
+  // L13, statement 3: the validator refuses 3 changed copies of the part bridge-hop in the pattern that names it
+  const bridgePattern = PATTERNS.find((p) => p.parts.hiding.includes("bridge-hop"));
+  const refusals: Record<string, boolean> = {};
+  if (!bridgePattern) note13(3, "no pattern names the part bridge-hop");
+  else {
+    const bridge = plain(PARTS.get("bridge-hop")) as { parties: { id: string; kind?: string; chain?: string }[]; steps: { id: string; via?: string }[] };
+    const copies: [string, (b: typeof bridge) => void][] = [
+      ["check 11", (b) => { b.parties.find((q) => q.id === "span")!.kind = "wallet"; }],
+      ["check 12", (b) => { const q = b.parties.find((x) => x.id === "span")!; q.chain = "bitcoin"; q.kind = "dex"; }],
+      ["check 13", (b) => { b.steps.find((s) => s.id === "lock")!.via = "bank-crypto"; }],
+    ];
+    for (const [what, change] of copies) {
+      const copy = plain(bridge) as typeof bridge;
+      change(copy);
+      const res = validatePattern(plain(bridgePattern), new Map([...PARTS, ["bridge-hop", copy as unknown as Part]]), known);
+      refusals[what] = !res.ok && res.errors.some((e) => e.includes(`(${what})`));
+      if (!refusals[what]) note13(3, `the validator does not refuse the copy of bridge-hop for ${what}${res.ok ? "" : ` (${res.errors[0]})`}`);
+    }
+  }
+  // L13, statement 4: cutShortOf on the stored case of the bridge pattern
+  const storedBridge = readJson(new URL("stolen-funds-through-bridge-and-mixers.json", goldenDir)) as { plan: Plan };
+  const second = storedBridge.plan.legs.filter((l) => l.part === "mixer~2" && l.step === "deposit").map((l) => l.seq);
+  const cutWithout = cutShortOf(storedBridge.plan.legs, new Set(storedBridge.plan.legs.map((l) => l.seq).filter((s) => !second.includes(s))));
+  const cutWith = cutShortOf(storedBridge.plan.legs, new Set(storedBridge.plan.legs.map((l) => l.seq)));
+  if (second.length === 0) note13(4, "the stored case holds no payment of the step deposit of the use mixer~2");
+  if (!cutWithout) note13(4, "cutShortOf is false without the payments of the step deposit of the use mixer~2");
+  if (cutWith) note13(4, "cutShortOf is true with every payment");
+  record("L13", `${plansChecked} plans and ${rowsOnChain} rows with a chain name no party of another chain, the 4 services of the design are the only parties without a chain, the validator refuses 3 changed copies of bridge-hop, and cutShortOf answers for ${second.length} payments of mixer~2`, first13.filter((m) => m !== null).join(" | ") || null);
   console.log(`data sets: ${timing.join(", ")}`);
 }
 

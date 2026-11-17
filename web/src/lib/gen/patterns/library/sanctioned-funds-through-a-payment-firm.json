@@ -1,0 +1,23 @@
+{
+  "schema": "touchstone-pattern/1",
+  "id": "sanctioned-funds-through-a-payment-firm",
+  "status": "tested",
+  "title": "Funds from a sanctioned bank paid out to suppliers by a payment firm",
+  "short": "Sanctioned funds, firm",
+  "summary": "A client with funds from a sanctioned bank sends a stablecoin to a payment firm. The funds are traded at an exchange with weak checks and the firm pays third parties abroad.",
+  "parts": {
+    "source": "sanctioned-funds-in-stablecoin",
+    "hiding": [
+      "high-risk-exchange-pass"
+    ],
+    "cashOut": "payment-firm-third-party-payments"
+  },
+  "bankSees": "cash-out",
+  "per1k": 0.4,
+  "references": [
+    {
+      "id": "S57",
+      "pages": "36, 40"
+    }
+  ]
+}

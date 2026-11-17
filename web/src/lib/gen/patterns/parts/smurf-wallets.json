@@ -1,0 +1,88 @@
+{
+  "schema": "touchstone-part/1",
+  "id": "smurf-wallets",
+  "kind": "hiding",
+  "status": "tested",
+  "title": "Funds split over many new wallets and brought together again",
+  "short": "Smurf wallets",
+  "summary": "The funds are split in modest sums over 8 to 30 new wallets across 2 to 14 days. Each wallet then sends what it holds to one wallet.",
+  "references": [
+    {
+      "id": "S57",
+      "pages": "29"
+    }
+  ],
+  "routes": [
+    {
+      "from": "any",
+      "to": "same"
+    }
+  ],
+  "entry": "holder",
+  "exit": "together",
+  "hides": {
+    "chance": 0.2,
+    "basis": {
+      "kind": "assumed",
+      "note": "No source read for this design publishes how often a screening tool loses the link at this method. The value is an assumption and means that the trail is lost in 20 cases in 100."
+    }
+  },
+  "parties": [
+    {
+      "id": "holder",
+      "kind": "wallet",
+      "label": "the wallet that holds the funds",
+      "reuse": "case"
+    },
+    {
+      "id": "together",
+      "kind": "wallet",
+      "label": "the wallet that brings the funds together",
+      "reuse": "case"
+    }
+  ],
+  "steps": [
+    {
+      "id": "fanOut",
+      "kind": "split",
+      "say": "The funds are split over many new wallets and then brought together in one wallet.",
+      "from": "holder",
+      "to": "together",
+      "via": "chain",
+      "asset": "in",
+      "amount": {
+        "of": "held",
+        "share": [
+          1,
+          1
+        ]
+      },
+      "ways": [
+        8,
+        30
+      ],
+      "over": {
+        "days": [
+          2,
+          14
+        ]
+      },
+      "gather": true,
+      "start": {
+        "after": "entry",
+        "hours": [
+          1,
+          24
+        ]
+      },
+      "need": "required",
+      "varies": "ephemeral",
+      "basis": {
+        "kind": "reported",
+        "ref": "S57",
+        "pages": "29",
+        "note": "The report describes many new wallets, modest amounts over time and then reconsolidation. The count of wallets and the period are assumed."
+      }
+    }
+  ]
+}

@@ -1,0 +1,101 @@
+{
+  "schema": "touchstone-part/1",
+  "id": "cash-by-courier",
+  "kind": "cash-out",
+  "status": "tested",
+  "title": "Funds sent to a broker who hands over cash or posts it",
+  "short": "Cash by courier",
+  "summary": "The launderer sends the funds to a broker's wallet. The broker hands over cash, or sends it by post.",
+  "references": [
+    {
+      "id": "S57",
+      "pages": "13, 38, 39"
+    }
+  ],
+  "takes": "any",
+  "entry": "launderer",
+  "parties": [
+    {
+      "id": "launderer",
+      "kind": "wallet",
+      "label": "the launderer's wallet",
+      "reuse": "case"
+    },
+    {
+      "id": "broker",
+      "kind": "wallet",
+      "label": "the broker's wallet",
+      "reuse": "case"
+    },
+    {
+      "id": "cash",
+      "kind": "cash",
+      "label": "cash handed over or posted",
+      "reuse": "case"
+    }
+  ],
+  "steps": [
+    {
+      "id": "send",
+      "kind": "move",
+      "say": "The launderer sends the funds to the broker's wallet.",
+      "from": "launderer",
+      "to": "broker",
+      "via": "chain",
+      "asset": "in",
+      "amount": {
+        "of": "held",
+        "share": [
+          1,
+          1
+        ]
+      },
+      "start": {
+        "after": "entry",
+        "minutes": [
+          10,
+          240
+        ]
+      },
+      "need": "required",
+      "varies": "rotating",
+      "basis": {
+        "kind": "reported",
+        "ref": "S57",
+        "pages": "38, 39",
+        "note": "The report describes a broker who took cryptocurrency. The wait is assumed."
+      }
+    },
+    {
+      "id": "handOver",
+      "kind": "move",
+      "say": "The broker hands over cash, or sends it by post.",
+      "from": "broker",
+      "to": "cash",
+      "via": "off-record",
+      "asset": "cash",
+      "amount": {
+        "of": "held",
+        "share": [
+          1,
+          1
+        ]
+      },
+      "start": {
+        "after": "send",
+        "days": [
+          1,
+          5
+        ]
+      },
+      "need": "required",
+      "varies": "rotating",
+      "basis": {
+        "kind": "reported",
+        "ref": "S57",
+        "pages": "13, 38, 39",
+        "note": "The report describes a broker who delivered cash by post through a hawala route, and one market whose vendors offered cash drops. The wait of 1 to 5 days is assumed."
+      }
+    }
+  ]
+}

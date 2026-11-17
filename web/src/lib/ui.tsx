@@ -176,13 +176,13 @@ export function Field({ label, value, hint, children }: { label: string; value?:
   );
 }
 
-export function Slider({ value, min, max, step, onChange, label }: { value: number; min: number; max: number; step: number; onChange: (v: number) => void; label?: string }) {
-  return <input type="range" className="slider" value={value} min={min} max={max} step={step} onChange={(e) => onChange(Number(e.target.value))} aria-label={label} />;
+export function Slider({ value, min, max, step, onChange, label, disabled, valueText, describedBy }: { value: number; min: number; max: number; step: number; onChange: (v: number) => void; label?: string; disabled?: boolean; valueText?: string; describedBy?: string }) {
+  return <input type="range" className="slider" value={value} min={min} max={max} step={step} onChange={(e) => onChange(Number(e.target.value))} aria-label={label} disabled={disabled} aria-valuetext={valueText} aria-describedby={describedBy} />;
 }
 
-export function Toggle({ on, onChange, label }: { on: boolean; onChange: (v: boolean) => void; label?: string }) {
+export function Toggle({ on, onChange, label, describedBy }: { on: boolean; onChange: (v: boolean) => void; label?: string; describedBy?: string }) {
   return (
-    <button type="button" className={`toggle ${on ? "on" : ""}`} role="switch" aria-checked={on} onClick={() => onChange(!on)} aria-label={label}>
+    <button type="button" className={`toggle ${on ? "on" : ""}`} role="switch" aria-checked={on} onClick={() => onChange(!on)} aria-label={label} aria-describedby={describedBy}>
       <span className="toggle-knob" />
     </button>
   );
@@ -202,10 +202,10 @@ export function Note({ children, tone = "muted" }: { children: ReactNode; tone?:
 }
 
 /** Loading is a sentence and a progress rule, never a skeleton. */
-export function Working({ label, done, total }: { label: string; done?: number; total?: number }) {
+export function Working({ label, done, total, status = true }: { label: string; done?: number; total?: number; status?: boolean }) {
   const known = done !== undefined && total !== undefined && total > 0;
   return (
-    <div className="working" role="status" aria-live="polite">
+    <div className="working" role={status ? "status" : undefined} aria-live={status ? "polite" : undefined}>
       <span>{label}</span>
       <div className={`progress ${known ? "" : "indeterminate"}`}><i style={known ? { width: `${Math.round(100 * (done as number) / (total as number))}%` } : undefined} /></div>
     </div>
