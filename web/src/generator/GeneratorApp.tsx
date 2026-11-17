@@ -44,8 +44,10 @@ export default function GeneratorApp() {
   }, [hash]);
   const query = hash.split("?")[1] ?? "";
   const page = hash.split("?")[0];
-  // a new page opens at its top; the hash router would otherwise keep the scroll of the page before
-  useEffect(() => { window.scrollTo(0, 0); }, [page]);
+  // a new page opens at its top; the hash router would otherwise keep the scroll of the page before. The page that the
+  // app opens with is left where the browser puts it, so that a reload or a move Back keeps the place of the reader.
+  const scrolledFor = useRef(page);
+  useEffect(() => { if (scrolledFor.current === page) return; scrolledFor.current = page; window.scrollTo(0, 0); }, [page]);
   const onPatterns = page === "#/data/patterns" || page.startsWith("#/data/patterns/");
   const line = generated === null ? BASE_LINE
     // one crime pattern pays an address of OFAC's list, and those addresses are real entries of that public list
