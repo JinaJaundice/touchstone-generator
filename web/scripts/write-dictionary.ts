@@ -37,7 +37,7 @@ marking and for the files, and no rule may read it.
 
 The transaction file and the account file hold one column for each field of the
 tables Transactions and Accounts below. A field of the session, the payee, the
-card payment or the crypto leg has a column named after both, such as
+card payment or the crypto payment has a column named after both, such as
 \`session_channel\` or \`crypto_label\`. The transaction file also holds the column
 \`date\`, which gives the calendar date of \`day\`.
 
@@ -53,7 +53,7 @@ switched on holds no row of either table.
 
 ## Transactions
 
-One record per payment, card authorisation, cash movement, crypto leg or
+One record per payment, card authorisation, cash movement, crypto payment or
 opening balance. A declined card authorisation is a record that moved no money.
 The date of a day is the data set's calendar: period 1 day 0 is Monday
 6 July 2026, and the minute is UK clock time.
@@ -72,7 +72,7 @@ ${table(PAYEE_FIELDS)}
 
 ${table(CARD_FIELDS)}
 
-### A crypto leg (\`crypto\`)
+### A crypto payment (\`crypto\`)
 
 ${table(CRYPTO_FIELDS)}
 
@@ -130,7 +130,7 @@ and the end of it that the bank sees. The family is the family of that end.
 |---|---|---|
 ${libraryKeys.join("\n")}
 
-### What one leg of a pattern is (\`role\` on a transaction)
+### The role of a payment in its pattern (\`role\` on a transaction)
 
 | Role | Meaning |
 |---|---|

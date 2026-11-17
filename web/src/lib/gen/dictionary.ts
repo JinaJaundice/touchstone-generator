@@ -47,7 +47,7 @@ export const LEG_ROLE: Record<string, string> = {
 
 export const ACCOUNT_ROLE: Record<string, string> = {
   launderer: "an account a laundering or crypto pattern runs through",
-  victim: "a customer who lost money to a fraud; never suspicious",
+  victim: "a customer who lost money to a fraud and is never suspicious",
   mule: "an account that received a fraud's proceeds and passed them on",
   collector: "the account a mule network pools its money into",
   "first-party": "a customer defrauding the bank with their own account",
@@ -66,7 +66,7 @@ const FAMILY_VALUES = Object.fromEntries((Object.keys(FAMILY_LABEL) as Family[])
 
 export const TX_FIELDS: FieldSpec[] = [
   { name: "id", type: "int", meaning: "the record's number, in time order from 0" },
-  { name: "day", type: "int", meaning: "the day, 0 to days - 1; day 0 is the data set's day0 date" },
+  { name: "day", type: "int", meaning: "the day, from 0 to days - 1, where day 0 is the data set's day0 date" },
   { name: "minute", type: "int", meaning: "the minute of the day in UK clock time, 0 to 1439" },
   { name: "type", type: "enum", meaning: "what the money did", values: {
     TRANSFER: "account to account, here or at another bank", INCOME: "a credit from outside the data set", SPEND: "a payment to a merchant or a biller",
@@ -79,7 +79,7 @@ export const TX_FIELDS: FieldSpec[] = [
     swift: "SWIFT, in the payee's currency", "card-chip": "card present, chip and PIN", "card-contactless": "card present, contactless, up to GBP 100",
     "card-online": "card not present", "card-magstripe": "card present, magnetic stripe", atm: "a cash machine, up to GBP 500 a day", counter: "a branch counter",
     "partner-counter": "a partner counter such as the Post Office", crypto: "on-chain", internal: "an entry inside the bank" } },
-  { name: "status", type: "enum", meaning: "whether money moved", values: { settled: "the payment went through", declined: "a card authorisation was refused; no money moved" } },
+  { name: "status", type: "enum", meaning: "whether money moved", values: { settled: "the payment went through", declined: "a card authorisation was refused and no money moved" } },
   { name: "amount", type: "number", meaning: "the value in pounds, two decimal places, above zero" },
   { name: "currency", type: "string", meaning: "the currency the payee receives: GBP, or the payee's currency on a SWIFT payment (ISO 4217)" },
   { name: "orig", type: "int", meaning: "the paying account's id, or -2 for money from outside the data set" },
@@ -90,7 +90,7 @@ export const TX_FIELDS: FieldSpec[] = [
     values: { exchange: "classed as an exchange", personal: "classed as a self-hosted or peer-to-peer wallet", mixer: "classed as a tumbler", darknet: "classed as a darknet market, extortion or cyber service", gambling: "classed as gambling", sanctioned: "on the OFAC list", unknown: "any other class" } },
   { name: "bankOrig", type: "string", meaning: "the payer's bank: Bank A to F for an account here, external, or wallet" },
   { name: "bankDest", type: "string", meaning: "the payee's bank, the same way" },
-  { name: "country", type: "string", meaning: "the counterparty's jurisdiction (ISO 3166 alpha-2); the merchant's country for a card payment; GB for a domestic leg" },
+  { name: "country", type: "string", meaning: "the counterparty's jurisdiction (ISO 3166 alpha-2), which is the merchant's country for a card payment and GB for a domestic payment" },
   { name: "newPayee", type: "bool", meaning: "the first payment from this payer to this payee" },
   { name: "newPayer", type: "bool", meaning: "the first credit into this account from this payer: a customer here, a wallet, or a payer at another bank. An established customer's regular payers (pay, pension, invoices, their own wallet) count as seen before the period with the chance their own rate gives. Always false for cash paid in, which has no payer" },
   { name: "recentCredentialChange", type: "bool", meaning: "the payer changed a password, phone number or email, added a device, or had a SIM swap in the 48 hours before" },
@@ -100,11 +100,11 @@ export const TX_FIELDS: FieldSpec[] = [
   { name: "session", type: "object", nullable: true, meaning: "the session the customer paid from", when: "type is CRYPTO_OUT, or type is TRANSFER and method is fps, chaps or swift, or type is SPEND and method is fps" },
   { name: "payee", type: "object", nullable: true, meaning: "the payee of a push payment", when: "type is TRANSFER, or type is SPEND and method is fps" },
   { name: "card", type: "object", nullable: true, meaning: "the card payment's facts", when: "rail is CARD" },
-  { name: "crypto", type: "object", nullable: true, meaning: "the crypto leg's facts", when: "rail is CRYPTO" },
-  { name: "patternId", type: "int", truth: true, meaning: "the planted pattern this leg belongs to, or -1" },
+  { name: "crypto", type: "object", nullable: true, meaning: "the facts of the crypto payment", when: "rail is CRYPTO" },
+  { name: "patternId", type: "int", truth: true, meaning: "the planted pattern this payment belongs to, or -1" },
   { name: "typology", type: "enum", truth: true, nullable: true, meaning: "the crime pattern", values: TYPOLOGY_VALUES },
   { name: "family", type: "enum", truth: true, nullable: true, meaning: "which control owns the pattern", values: FAMILY_VALUES },
-  { name: "role", type: "enum", truth: true, nullable: true, meaning: "what this leg is inside its pattern", values: LEG_ROLE },
+  { name: "role", type: "enum", truth: true, nullable: true, meaning: "the role of this payment in its pattern", values: LEG_ROLE },
   { name: "caseId", type: "int", truth: true, meaning: "the case the pattern belongs to (a scam and the mule accounts it paid are one case), or -1" },
 ];
 
@@ -119,7 +119,7 @@ export const SESSION_FIELDS: FieldSpec[] = [
   { name: "seconds", type: "int", meaning: "seconds from log-in to confirming the payment" },
 ];
 export const PAYEE_FIELDS: FieldSpec[] = [
-  { name: "cop", type: "enum", nullable: true, meaning: "the Confirmation of Payee result when the payee was set up; null for a payee already paid, a payment abroad or a Direct Debit",
+  { name: "cop", type: "enum", nullable: true, meaning: "the Confirmation of Payee result when the payee was set up, or null for a payee already paid, a payment abroad or a Direct Debit",
     values: { match: "the name matched", "close-match": "a close match (the real name was shown), or the account type did not match", "no-match": "the name did not match", unavailable: "the check could not run" } },
   { name: "accountType", type: "enum", meaning: "the kind of account the payment went to", values: { personal: "a personal account", business: "a business account" } },
   { name: "accountAgeDays", type: "int", nullable: true, meaning: "days since the receiving account opened, where the bank can know it" },
@@ -133,7 +133,7 @@ export const CARD_FIELDS: FieldSpec[] = [
   { name: "threeDS", type: "enum", meaning: "3-D Secure on a card-not-present payment",
     values: { authenticated: "the cardholder authenticated", "exempt-low-value": "exempt as GBP 25 or less", "exempt-recurring": "a recurring or merchant-initiated payment", "not-attempted": "the merchant did not ask", "not-applicable": "the card was present" } },
   { name: "declineReason", type: "enum", nullable: true, meaning: "why an authorisation was refused", values: { "insufficient-funds": "not enough money", "invalid-details": "the card details were wrong", "card-blocked": "the card was stopped" } },
-  { name: "settledDay", type: "int", meaning: "the working day the payment settles; balances move at authorisation" },
+  { name: "settledDay", type: "int", meaning: "the working day the payment settles (the balances move at authorisation)" },
 ];
 export const CRYPTO_FIELDS: FieldSpec[] = [
   { name: "chain", type: "enum", meaning: "the chain the wallet is on", values: { bitcoin: "Bitcoin mainnet" } },
@@ -170,12 +170,12 @@ export const ACCOUNT_FIELDS: FieldSpec[] = [
   { name: "income", type: "number", meaning: "monthly take-home pay, or monthly turnover for a firm" },
   { name: "declaredMonthlyOut", type: "number", meaning: "what the customer said at onboarding they would send out a month" },
   { name: "country", type: "string", meaning: "the customer's home country" },
-  { name: "openedDay", type: "int", meaning: "the day the account opened; negative means before the period" },
-  { name: "quietDaysBefore", type: "int", meaning: "days before day 0 since the account last moved money; above 0 means dormant" },
+  { name: "openedDay", type: "int", meaning: "the day the account opened, which is negative before the period" },
+  { name: "quietDaysBefore", type: "int", meaning: "days before day 0 since the account last moved money (above 0 means dormant)" },
   { name: "initialBalance", type: "number", meaning: "the balance at the start" },
-  { name: "overdraftLimit", type: "number", meaning: "the arranged overdraft in pounds; 0 for none" },
-  { name: "deviceId", type: "string", meaning: "the customer's device at the start; mule rings share one" },
-  { name: "addressId", type: "string", meaning: "a household id; people at one address share it" },
+  { name: "overdraftLimit", type: "number", meaning: "the arranged overdraft in pounds, or 0 for none" },
+  { name: "deviceId", type: "string", meaning: "the customer's device at the start (the accounts of a mule ring share one)" },
+  { name: "addressId", type: "string", meaning: "a household id that the people at one address share" },
   { name: "wallet", type: "string", nullable: true, meaning: "the customer's own self-hosted Bitcoin wallet, a made segwit address" },
   { name: "pep", type: "bool", meaning: "a politically exposed person or a close associate" },
   { name: "cashBusiness", type: "bool", meaning: "a firm that takes most of its money in cash" },

@@ -84,7 +84,7 @@ export function calibrate(fig: BankFigures, base: GenConfig): Calibration {
     const n = Number(fig[key]);
     if (!Number.isFinite(n)) { ignored.push(`${key} must be a number`); return; }
     const v = Math.round(clamp(n, lo, hi));
-    if (v !== n) notes.push(`${key} ${n} is outside what the dials allow; set to ${v}.`);
+    if (v !== n) notes.push(`${key} ${n} is outside what the dials allow. The page set it to ${v}.`);
     c = { ...c, [dial]: v };
     applied.push({ figure: key, dial, value: String(v) });
   };
@@ -151,7 +151,7 @@ export function calibrate(fig: BankFigures, base: GenConfig): Calibration {
       const a = clamp((6 * n / atOne - 1) / 5, 0.5, 2);
       c = { ...c, activity: Number(a.toFixed(2)) };
       applied.push({ figure: "transactionsPerAccountPerDay", dial: "activity", value: `${c.activity.toFixed(2)}x` });
-      if (Math.abs(a - (6 * n / atOne - 1) / 5) > 1e-9) notes.push(`transactionsPerAccountPerDay ${n} is outside the activity dial's range; set to ${c.activity.toFixed(2)}x.`);
+      if (Math.abs(a - (6 * n / atOne - 1) / 5) > 1e-9) notes.push(`transactionsPerAccountPerDay ${n} is outside the activity dial's range. The page set the dial to ${c.activity.toFixed(2)}x.`);
     }
   }
   for (const k of Object.keys(fig)) if (!KNOWN.has(k)) ignored.push(`"${k}" has no dial`);
@@ -163,7 +163,7 @@ export function calibrate(fig: BankFigures, base: GenConfig): Calibration {
 export function figuresTemplate(base: GenConfig): string {
   const t = {
     format: FIGURES_FORMAT,
-    _help: "Fill in the figures a business-wide risk assessment holds. A share may be written as 0.3 or as 30. Delete any line you do not have; it keeps the bank type's value. Segments may be counts or shares; a segment you leave out is zero and personal takes the rest. Shares are of accounts unless the name says otherwise.",
+    _help: "Fill in the figures a business-wide risk assessment holds. A share may be written as 0.3 or as 30. For any line you delete, the page keeps the value of the bank type. Segments may be counts or shares, where a segment you leave out is zero and personal customers take the rest. Shares are of accounts unless the name says otherwise.",
     name: "Our retail bank, calibrated",
     bankType: "highstreet",
     accounts: base.accounts,

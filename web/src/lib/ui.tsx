@@ -252,7 +252,7 @@ export function DataStrip({ empty = "Choose a bank type below and make the data"
     <div className="strip" role="region" aria-label="The data set">
       {s.generating ? (
         <div className="strip-busy" style={{ gridColumn: "1 / 3" }}>
-          <span>Making the data: {s.generating.stage}</span>
+          <span>Making the data ({s.generating.stage})</span>
           <div className={`progress ${s.generating.total > 1 ? "" : "indeterminate"}`}><i style={s.generating.total > 1 ? { width: `${Math.round(100 * s.generating.done / s.generating.total)}%` } : undefined} /></div>
         </div>
       ) : ds ? (

@@ -228,7 +228,7 @@ export function LogHistogram({ all, marked, bins = 30 }: { all: number[]; marked
   const bw = (W - Lp * 2) / bins;
   const yOf = (n: number) => n === 0 ? 0 : Math.max(2, Math.sqrt(n / maxC) * (H - T - B));
   return (
-    <svg className="chart-svg" viewBox={`0 0 ${W} ${H}`} role="img" aria-label="how many transactions there are at each amount; planted crime shown in gold over all transactions in grey">
+    <svg className="chart-svg" viewBox={`0 0 ${W} ${H}`} role="img" aria-label="How many transactions there are at each amount. Planted crime is in gold over all transactions in grey.">
       {[0.5, 1].map((f) => <line key={f} x1={Lp} x2={W - Lp} y1={H - B - f * (H - T - B)} y2={H - B - f * (H - T - B)} stroke="var(--grid)" />)}
       <line x1={Lp} x2={W - Lp} y1={H - B} y2={H - B} stroke="var(--rule)" />
       {a.map((n, i) => <rect key={i} x={Lp + i * bw + 1} y={H - B - yOf(n)} width={bw - 2} height={yOf(n)} fill="var(--slate-fill)" opacity={0.45} />)}
@@ -236,7 +236,7 @@ export function LogHistogram({ all, marked, bins = 30 }: { all: number[]; marked
       {[1, 10, 100, 1000, 10000, 100000, 1000000].filter((v) => Math.log10(v) <= hi).map((v) => (
         <text key={v} x={Lp + ((Math.log10(v) - lo) / (hi - lo)) * (W - Lp * 2)} y={H - B + 14} fontSize="10" fill="var(--faint)" textAnchor="middle" className="val">{v >= 1000 ? `${v / 1000}k` : v}</text>
       ))}
-      <text x={W - Lp} y={H - 2} fontSize="10" textAnchor="end" fill="var(--faint)">amount in GBP; each step to the right is ten times more</text>
+      <text x={W - Lp} y={H - 2} fontSize="10" textAnchor="end" fill="var(--faint)">amount in GBP (each step to the right is ten times more)</text>
     </svg>
   );
 }

@@ -97,11 +97,11 @@ export function Generate({ text }: { text?: Partial<GenerateText> } = {}) {
   return (
     <Doc contents={CONTENTS}>
       <PageHead title="Build the bank, then make the data"
-        sub="Pick a bank type, read what you get, make the data. Every other dial is one row down. Every make draws a new seed number, so no two data sets are alike; pin the seed number to repeat one exactly." />
+        sub="Pick a bank type, read what you get, make the data. Every other dial is one row down. Every make draws a new seed number, so no two data sets are alike. Pin the seed number to repeat one exactly." />
 
       <BankBuilder />
 
-      <Section id="made" n="4" title={ds ? "What you got" : "What you got"} sub={ds ? `${ds.config.name}, seed number ${ds.config.seed}${s.genMs !== null ? `, made in ${(s.genMs / 1000).toFixed(1)} seconds` : ""}. Every planted transaction is labelled with its crime pattern. The rest of this section is the data set in detail; ${copy.nextSentence}.` : "Appears here once the data is made."}>
+      <Section id="made" n="4" title={ds ? "What you got" : "What you got"} sub={ds ? `${ds.config.name}, seed number ${ds.config.seed}${s.genMs !== null ? `, made in ${(s.genMs / 1000).toFixed(1)} seconds` : ""}. Every planted transaction is labelled with its crime pattern. The rest of this section is the data set in detail. ${copy.nextSentence.charAt(0).toUpperCase()}${copy.nextSentence.slice(1)}.` : "Appears here once the data is made."}>
         {ds ? (
           <>
             <StatBand items={[
@@ -138,13 +138,13 @@ export function Generate({ text }: { text?: Partial<GenerateText> } = {}) {
                 <Card title="Transactions by rail">
                   <BarList rows={Object.entries(ds.summary.byRail).sort((a, b) => b[1] - a[1]).map(([k, v]) => ({ key: k, label: RAIL_LABEL[k] ?? k, total: v }))} format={fmtInt} />
                 </Card>
-                <Card title="Amounts: all transactions against the planted ones" foot={`Each step to the right is ten times the amount. The typical transaction is ${fmtGbp(ds.summary.amountPercentiles.p50)}; 99 in 100 are under ${fmtGbp(ds.summary.amountPercentiles.p99)}.`}>
+                <Card title="Amounts of all transactions and of the planted ones" foot={`Each step to the right is ten times the amount. The typical transaction is ${fmtGbp(ds.summary.amountPercentiles.p50)}. Of every 100 transactions, 99 are under ${fmtGbp(ds.summary.amountPercentiles.p99)}.`}>
                   <LogHistogram all={amounts.all} marked={amounts.marked} />
                   <div className="legend"><span><i className="sw" style={{ background: "var(--slate-fill)", opacity: .45 }} />all transactions, sampled</span><span><i className="sw" style={{ background: "var(--gold-fill)" }} />planted transactions</span></div>
                 </Card>
               </div>
             </Disclosure>
-            <Disclosure id="log" title="The transaction log, under the hood" sub="thirty rows at random, or the first thirty of a kind; the full log is in the download" count="30 rows">
+            <Disclosure id="log" title="The transaction log, under the hood" sub="thirty rows at random or the first thirty of a kind, where the download holds every row" count="30 rows">
               <p className="faint" style={{ marginTop: 0, marginBottom: 8 }}>Seed number <span className="val">{ds.config.seed}</span>, fingerprint <span className="val">{s.fingerprint ?? "…"}</span>. A new make gives new rows unless the seed number is pinned.</p>
               <div className="btn-row" style={{ marginTop: 0, marginBottom: 10 }}><Seg size="sm" label="Which transactions to show" value={logFilter} onChange={setLogFilter} options={[{ key: "random", label: "Thirty at random" }, { key: "pattern", label: "Planted transactions" }, { key: "fraud", label: "Fraud" }, { key: "crypto", label: "Crypto" }, { key: "all", label: "Everything" }]} />{logFilter === "random" && <Button small onClick={() => setDraw((d) => d + 1)}>Another thirty</Button>}</div>
               <div className="tbl-wrap" tabIndex={0}>
@@ -173,7 +173,7 @@ export function Generate({ text }: { text?: Partial<GenerateText> } = {}) {
                   <dl className="message-fields">
                     {message.lines.map((l) => <div key={l.tag}><dt>{l.tag}</dt><dd className="val">{l.value}</dd></div>)}
                   </dl>
-                  <p className="message-foot"><span>Touchstone knows, the bank would not: <b>{message.truth}</b>.</span><span className="faint">{message.provenance}</span></p>
+                  <p className="message-foot"><span>Touchstone knows what the bank would not. <b>{message.truth}</b>.</span><span className="faint">{message.provenance}</span></p>
                 </div>
                         </td></tr>
                       )}
@@ -205,7 +205,7 @@ export function Generate({ text }: { text?: Partial<GenerateText> } = {}) {
             </Disclosure>
             <NextStep href={copy.next.href} title={copy.next.title} line={copy.next.line} />
           </>
-        ) : <Working label={s.generating ? `Making the data: ${s.generating.stage}` : "No data yet"} />}
+        ) : <Working label={s.generating ? `Making the data (${s.generating.stage})` : "No data yet"} />}
       </Section>
     </Doc>
   );

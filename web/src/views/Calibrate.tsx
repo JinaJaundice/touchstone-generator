@@ -26,8 +26,8 @@ export function Calibrate() {
     setCal(calibrate(r.figures, s.config));
   };
   return (
-    <Disclosure id="figures" title="Set the dials from your own figures" sub="the totals and shares a risk assessment already holds, pasted as a file; each one sets a dial" count="a file">
-      <p className="svc-p">Download the template, fill in the figures you have, paste the file here and read it. Every figure is shown with the dial it sets. Nothing you paste is sent anywhere; the page reads it here.</p>
+    <Disclosure id="figures" title="Set the dials from your own figures" sub="the totals and shares a risk assessment already holds, pasted as a file to set the dials" count="a file">
+      <p className="svc-p">Download the template, fill in the figures you have, paste the file here and read it. Every figure is shown with the dial it sets. Nothing you paste is sent anywhere. The page reads it in your browser.</p>
       <div className="btn-row">
         <Button small onClick={() => download("touchstone-figures.json", figuresTemplate(s.config))}>Download the template (JSON file)</Button>
       </div>
@@ -48,7 +48,7 @@ export function Calibrate() {
               </tbody>
             </table>
           </div>
-          {cal.ignored.length > 0 && <p className="faint">Ignored: {cal.ignored.join("; ")}.</p>}
+          {cal.ignored.map((n) => <p key={n} className="faint">The page ignored an entry because {n}.</p>)}
           {cal.notes.map((n) => <p key={n} className="faint">{n}</p>)}
         </div>
       )}

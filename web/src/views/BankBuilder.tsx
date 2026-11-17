@@ -103,7 +103,7 @@ export function BankBuilder() {
 
   return (
     <>
-      <Section id="type" n="1" title="Choose a bank type" sub="Seven kinds of bank, and any you have saved. Each sets every dial to a realistic value; the next section shows what that gives you.">
+      <Section id="type" n="1" title="Choose a bank type" sub="Seven kinds of bank, and any you have saved. Each sets every dial to a realistic value. The next section shows what that gives you.">
         <div className="archetypes" tabIndex={0} aria-label="Bank types">
           {ARCHETYPE_ORDER.map((k) => {
             const a = ARCHETYPES[k];
@@ -125,7 +125,7 @@ export function BankBuilder() {
             </button>
           ))}
         </div>
-        <p className="archetype-desc">{activeKey ? <><b>{ARCHETYPES[activeKey].label}.</b> {ARCHETYPES[activeKey].line}</> : savedMatch ? <><b>{savedMatch.name}.</b> A saved bank type: {fmtInt(savedMatch.config.accounts)} accounts over {savedMatch.config.days} days.</> : <><b>{cfg.name}.</b> The bank as currently set: {fmtInt(cfg.accounts)} accounts over {cfg.days} days. Pick a type to start from a different kind of bank.</>}</p>
+        <p className="archetype-desc">{activeKey ? <><b>{ARCHETYPES[activeKey].label}.</b> {ARCHETYPES[activeKey].line}</> : savedMatch ? <><b>{savedMatch.name}.</b> A saved bank type with {fmtInt(savedMatch.config.accounts)} accounts over {savedMatch.config.days} days.</> : <><b>{cfg.name}.</b> The bank as currently set has {fmtInt(cfg.accounts)} accounts over {cfg.days} days. Pick a type to start from a different kind of bank.</>}</p>
       </Section>
 
       <Section id="get" n="2" title="What you get" sub="The bank as set, before you make it. Move a dial and the figures follow. Making the largest bank takes about a quarter of a minute.">
@@ -142,8 +142,8 @@ export function BankBuilder() {
               <div><b className="val">{fmtPct(est.baseRate, 1)}</b><span>of accounts are crime</span></div>
             </div>
             <div className="preview-actions">
-              <Button kind="primary" large onClick={() => actions.generate()} disabled={!!s.generating}>{s.generating ? `Making the data: ${s.generating.stage}` : dirty ? "Make the data" : s.seedPinned ? "Make it again" : "Make a new data set"}</Button>
-              {s.error && !s.generating && <p className="gen-error" role="alert">The data could not be made: {s.error}. {s.dataset ? "The data set on screen is the one made before." : ""}</p>}
+              <Button kind="primary" large onClick={() => actions.generate()} disabled={!!s.generating}>{s.generating ? `Making the data (${s.generating.stage})` : dirty ? "Make the data" : s.seedPinned ? "Make it again" : "Make a new data set"}</Button>
+              {s.error && !s.generating && <p className="gen-error" role="alert">The data could not be made because of an error ({s.error}). {s.dataset ? "The data set on screen is the one made before." : ""}</p>}
               <div className="btn-row">
                 <span className="faint">{est.seconds < 1 ? "Under a second to make." : `About ${est.seconds.toFixed(0)} seconds to make.`}</span>
                 <span className="grow" />
@@ -161,7 +161,7 @@ export function BankBuilder() {
         </div>
       </Section>
 
-      <Section id="adjust" n="3" title="Adjust the bank" sub="Every other setting, in the five groups a firm's risk assessment uses. Open a group to change it; the figures above follow. Most readers leave these as the bank type set them.">
+      <Section id="adjust" n="3" title="Adjust the bank" sub="Every other setting, in the five groups a firm's risk assessment uses. Open a group to change it. The figures above follow each change. Most readers leave these as the bank type set them.">
         {groups.map((g) => {
           const dials = dialsOf(g.key);
           const count = g.key === "crime" ? `${patternsOn} patterns on` : `${dials.length} ${dials.length === 1 ? "dial" : "dials"}`;
@@ -197,12 +197,12 @@ export function BankBuilder() {
               <Field label="Small firms" value={fmtPct(cfg.segments.sme)} hint="Personal customers take the rest."><Slider value={cfg.segments.sme} min={0} max={0.7} step={0.01} onChange={(v) => actions.setConfig({ segments: { ...cfg.segments, sme: v, retail: Math.max(0, 1 - v - cfg.segments.corporate - cfg.segments.private) } })} /></Field>
               <Field label="Corporates" value={fmtPct(cfg.segments.corporate)}><Slider value={cfg.segments.corporate} min={0} max={0.3} step={0.01} onChange={(v) => actions.setConfig({ segments: { ...cfg.segments, corporate: v, retail: Math.max(0, 1 - v - cfg.segments.sme - cfg.segments.private) } })} /></Field>
               <Field label="Private clients" value={fmtPct(cfg.segments.private)}><Slider value={cfg.segments.private} min={0} max={0.7} step={0.01} onChange={(v) => actions.setConfig({ segments: { ...cfg.segments, private: v, retail: Math.max(0, 1 - v - cfg.segments.sme - cfg.segments.corporate) } })} /></Field>
-              <Field label="Politically exposed persons" value={`${(100 * cfg.customers.pepShare).toFixed(1)}%`} hint="Share of personal customers; private clients eight times as often."><Slider value={cfg.customers.pepShare} min={0} max={0.05} step={0.001} onChange={(v) => actions.setConfig({ customers: { ...cfg.customers, pepShare: v } })} /></Field>
+              <Field label="Politically exposed persons" value={`${(100 * cfg.customers.pepShare).toFixed(1)}%`} hint="The share of personal customers. Private clients carry eight times this share."><Slider value={cfg.customers.pepShare} min={0} max={0.05} step={0.001} onChange={(v) => actions.setConfig({ customers: { ...cfg.customers, pepShare: v } })} /></Field>
               <Field label="Customers living outside the UK" value={fmtPct(cfg.customers.nonResidentShare)}><Slider value={cfg.customers.nonResidentShare} min={0} max={0.6} step={0.01} onChange={(v) => actions.setConfig({ customers: { ...cfg.customers, nonResidentShare: v } })} /></Field>
               <Field label="Small firms that are cash-based" value={fmtPct(cfg.customers.cashBusinessShare)}><Slider value={cfg.customers.cashBusinessShare} min={0} max={0.5} step={0.01} onChange={(v) => actions.setConfig({ customers: { ...cfg.customers, cashBusinessShare: v } })} /></Field>
               <Field label="Customers taken on online" value={fmtPct(cfg.customers.digitalShare)}><Slider value={cfg.customers.digitalShare} min={0} max={1} step={0.05} onChange={(v) => actions.setConfig({ customers: { ...cfg.customers, digitalShare: v } })} /></Field>
               <Field label="Accounts opened during the run" value={fmtPct(cfg.newAccountShare)}><Slider value={cfg.newAccountShare} min={0} max={0.4} step={0.01} onChange={(v) => actions.setConfig({ newAccountShare: v })} /></Field>
-              <Field label="Seed" hint={s.seedPinned ? "Pinned: the same seed number and settings make the same data set again, down to the transaction." : "Every make draws a new seed number, so no two data sets are alike. Pin it to repeat a data set exactly."}>
+              <Field label="Seed" hint={s.seedPinned ? "The seed number is pinned. The same seed number and settings make the same data set again, down to the transaction." : "Every make draws a new seed number, so no two data sets are alike. Pin it to repeat a data set exactly."}>
                 <div className="seed-row"><input className="input val" type="number" value={cfg.seed} onChange={(e) => { actions.setConfig({ seed: Number(e.target.value) || 0 }); actions.setSeedPinned(true); }} /><Button small onClick={() => actions.reseed()}>New seed</Button><Button small onClick={() => actions.nextPeriod()} disabled={!!s.generating}>Next period</Button></div>
                 <div className="field-hint">Period {cfg.period ?? 1} of this bank. Next period keeps the bank, its customers and their relationships, and draws a new run of days and of crime.</div>
                 <div className="field-row" style={{ marginTop: 6 }}><span className="field-label">Pin this seed</span><Toggle on={s.seedPinned} onChange={(v) => actions.setSeedPinned(v)} label="pin the seed number" /></div>
@@ -229,12 +229,12 @@ export function BankBuilder() {
             <h4>Countries</h4>
             <div className="settings-grid">
               <Field label="Share of ordinary payments that go abroad" value={fmtPct(cfg.internationalShare)}><Slider value={cfg.internationalShare} min={0} max={0.3} step={0.01} onChange={(v) => actions.setConfig({ internationalShare: v })} /></Field>
-              <Field label="Of payments abroad: to the European Economic Area" value={fmtPct(cfg.geography.corridorMix.eea)} hint="The four destination shares add up to 100%; moving one scales the others."><Slider value={cfg.geography.corridorMix.eea} min={0} max={1} step={0.01} onChange={(v) => actions.setConfig({ geography: { ...cfg.geography, corridorMix: rebalance(cfg.geography.corridorMix, "eea", v) } })} /></Field>
-              <Field label="Of payments abroad: to other lower-risk countries" value={fmtPct(cfg.geography.corridorMix.other)}><Slider value={cfg.geography.corridorMix.other} min={0} max={1} step={0.01} onChange={(v) => actions.setConfig({ geography: { ...cfg.geography, corridorMix: rebalance(cfg.geography.corridorMix, "other", v) } })} /></Field>
-              <Field label="Of payments abroad: to remittance corridors" value={fmtPct(cfg.geography.corridorMix.corridor)} hint="India, Pakistan, Nigeria, Ghana, Bangladesh, the Philippines, Jamaica, South Africa, Sri Lanka, the UAE, Turkey."><Slider value={cfg.geography.corridorMix.corridor} min={0} max={1} step={0.01} onChange={(v) => actions.setConfig({ geography: { ...cfg.geography, corridorMix: rebalance(cfg.geography.corridorMix, "corridor", v) } })} /></Field>
-              <Field label="Of payments abroad: to FATF-listed countries" value={fmtPct(cfg.geography.corridorMix.highRisk)} hint="The FATF's call-for-action and increased-monitoring lists as of June 2026. The Money Laundering Regulations require enhanced due diligence for the first; the second is a risk factor to weigh."><Slider value={cfg.geography.corridorMix.highRisk} min={0} max={0.3} step={0.005} onChange={(v) => actions.setConfig({ geography: { ...cfg.geography, corridorMix: rebalance(cfg.geography.corridorMix, "highRisk", v) } })} /></Field>
-              <Field label="Of customers living abroad: from FATF-listed countries" value={fmtPct(cfg.geography.homeMix.highRisk)}><Slider value={cfg.geography.homeMix.highRisk} min={0} max={0.3} step={0.005} onChange={(v) => actions.setConfig({ geography: { ...cfg.geography, homeMix: rebalance(cfg.geography.homeMix, "highRisk", v) } })} /></Field>
-              <Field label="Of customers living abroad: from remittance corridors" value={fmtPct(cfg.geography.homeMix.corridor)}><Slider value={cfg.geography.homeMix.corridor} min={0} max={1} step={0.01} onChange={(v) => actions.setConfig({ geography: { ...cfg.geography, homeMix: rebalance(cfg.geography.homeMix, "corridor", v) } })} /></Field>
+              <Field label="Payments abroad to the European Economic Area" value={fmtPct(cfg.geography.corridorMix.eea)} hint="The four destination shares add up to 100%, so moving one scales the other three."><Slider value={cfg.geography.corridorMix.eea} min={0} max={1} step={0.01} onChange={(v) => actions.setConfig({ geography: { ...cfg.geography, corridorMix: rebalance(cfg.geography.corridorMix, "eea", v) } })} /></Field>
+              <Field label="Payments abroad to other lower-risk countries" value={fmtPct(cfg.geography.corridorMix.other)}><Slider value={cfg.geography.corridorMix.other} min={0} max={1} step={0.01} onChange={(v) => actions.setConfig({ geography: { ...cfg.geography, corridorMix: rebalance(cfg.geography.corridorMix, "other", v) } })} /></Field>
+              <Field label="Payments abroad to remittance corridors" value={fmtPct(cfg.geography.corridorMix.corridor)} hint="India, Pakistan, Nigeria, Ghana, Bangladesh, the Philippines, Jamaica, South Africa, Sri Lanka, the UAE, Turkey."><Slider value={cfg.geography.corridorMix.corridor} min={0} max={1} step={0.01} onChange={(v) => actions.setConfig({ geography: { ...cfg.geography, corridorMix: rebalance(cfg.geography.corridorMix, "corridor", v) } })} /></Field>
+              <Field label="Payments abroad to FATF-listed countries" value={fmtPct(cfg.geography.corridorMix.highRisk)} hint="The FATF's call-for-action and increased-monitoring lists as of June 2026. The Money Laundering Regulations require enhanced due diligence for a country on the first list. A country on the second list is a risk factor to weigh."><Slider value={cfg.geography.corridorMix.highRisk} min={0} max={0.3} step={0.005} onChange={(v) => actions.setConfig({ geography: { ...cfg.geography, corridorMix: rebalance(cfg.geography.corridorMix, "highRisk", v) } })} /></Field>
+              <Field label="Customers living abroad who come from FATF-listed countries" value={fmtPct(cfg.geography.homeMix.highRisk)}><Slider value={cfg.geography.homeMix.highRisk} min={0} max={0.3} step={0.005} onChange={(v) => actions.setConfig({ geography: { ...cfg.geography, homeMix: rebalance(cfg.geography.homeMix, "highRisk", v) } })} /></Field>
+              <Field label="Customers living abroad who come from remittance corridors" value={fmtPct(cfg.geography.homeMix.corridor)}><Slider value={cfg.geography.homeMix.corridor} min={0} max={1} step={0.01} onChange={(v) => actions.setConfig({ geography: { ...cfg.geography, homeMix: rebalance(cfg.geography.homeMix, "corridor", v) } })} /></Field>
               <Field label="Banks" value={cfg.banks}><Slider value={cfg.banks} min={1} max={6} step={1} onChange={(v) => actions.setConfig({ banks: v })} /></Field>
             </div>
           </div>
@@ -246,7 +246,7 @@ export function BankBuilder() {
             </div>
           </div>
           <div className="exact-group">
-            <h4>Difficulty: AMLGentex's tuning settings, one by one</h4>
+            <h4>Difficulty in AMLGentex's tuning settings, one by one</h4>
             <div className="settings-grid">
               <Field label="Laundering amounts overlap ordinary amounts" value={fmtPct(cfg.amountOverlap)} hint="100% is the difficult setting, where the two distributions match. At 0%, laundering payments run four times larger."><Slider value={cfg.amountOverlap} min={0} max={1} step={0.05} onChange={(v) => actions.setConfig({ amountOverlap: v })} /></Field>
               <Field label="Burstiness" value={fmtNum(cfg.burstinessBias, 1)} hint="Negative spreads a pattern's payments across its period. Positive piles them into a few days."><Slider value={cfg.burstinessBias} min={-4} max={4} step={0.5} onChange={(v) => actions.setConfig({ burstinessBias: v })} /></Field>
@@ -255,7 +255,7 @@ export function BankBuilder() {
               <Field label="Accounts in more than one pattern" value={fmtPct(cfg.multiPatternShare)}><Slider value={cfg.multiPatternShare} min={0} max={0.7} step={0.05} onChange={(v) => actions.setConfig({ multiPatternShare: v })} /></Field>
               <Field label="Launderers sit on connected accounts" value={fmtPct(cfg.centralityBias)} hint="Zero picks pattern members at random."><Slider value={cfg.centralityBias} min={0} max={1} step={0.05} onChange={(v) => actions.setConfig({ centralityBias: v })} /></Field>
               <Field label="Cash threshold structurers stay under" value={fmtGbp(cfg.cashThreshold)}><Slider value={cfg.cashThreshold} min={2000} max={20000} step={500} onChange={(v) => actions.setConfig({ cashThreshold: v })} /></Field>
-              <Field label="Crypto information threshold" value={fmtGbp(cfg.travelRuleThreshold)} hint="UK: fuller originator and beneficiary information travels with a transfer of GBP 800 or more where one of the cryptoasset businesses is outside the UK."><Slider value={cfg.travelRuleThreshold} min={200} max={5000} step={100} onChange={(v) => actions.setConfig({ travelRuleThreshold: v })} /></Field>
+              <Field label="Crypto information threshold" value={fmtGbp(cfg.travelRuleThreshold)} hint="In the UK, fuller originator and beneficiary information travels with a transfer of GBP 800 or more where one of the cryptoasset businesses is outside the UK."><Slider value={cfg.travelRuleThreshold} min={200} max={5000} step={100} onChange={(v) => actions.setConfig({ travelRuleThreshold: v })} /></Field>
               <div className="field">
                 <div className="field-row"><span className="field-label">Record placements as transactions</span><Toggle on={cfg.visiblePlacement} onChange={(v) => actions.setConfig({ visiblePlacement: v })} label="visible placement" /></div>
                 <div className="field-hint">On, laundering funds arrive as cash deposits or unexplained credits the rules can read. Off reproduces AMLGentex, where they appear in balances without a transaction.</div>

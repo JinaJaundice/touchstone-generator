@@ -54,7 +54,7 @@ export function RiskAssessment({ cfg }: { cfg: GenConfig }) {
       factor: "Products",
       setting: `Current accounts, with cards for ${pct(pr.cards)} of customers and arranged overdrafts for ${pct(pr.overdrafts)} of personal customers. ${cashWords[0].toUpperCase()}${cashWords.slice(1)}${cash > 0 ? `, and ${pct(cfg.cashShare)} of spending in cash` : ""}. ${pr.international ? "Payments abroad are offered" : "No payments abroad"}, and ${pct(cfg.cryptoActiveShare)} of personal customers hold a linked crypto wallet.`,
       reading: productReading,
-      why: "Cash and crypto are the products that carry laundering; an overdraft is what a first-party fraudster takes.",
+      why: "Cash and crypto are the products that carry laundering. An overdraft is what a first-party fraudster takes.",
     },
     {
       factor: "Transactions",
@@ -64,7 +64,7 @@ export function RiskAssessment({ cfg }: { cfg: GenConfig }) {
     },
     {
       factor: "Channel",
-      setting: `${pct(cu.digitalShare)} of customers taken on online without being met; ${pct(1 - cu.digitalShare)} in a branch or in person. Customers taken on online sit on the lighter identity-check tiers more often.`,
+      setting: `${pct(cu.digitalShare)} of customers taken on online without being met and ${pct(1 - cu.digitalShare)} taken on in a branch or in person. Customers taken on online sit on the lighter identity-check tiers more often.`,
       reading: channelReading,
       why: "Taking a customer on without meeting them is a risk factor in the JMLSG guidance, and where identity fraud enters.",
     },
