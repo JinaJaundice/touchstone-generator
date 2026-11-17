@@ -4,7 +4,7 @@
    underline, small-capital tags instead of badges, the hallmark cartouche
    for a rule code, and the data strip in the masthead idiom. No motion here. */
 
-import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from "react";
 import { genActions as actions, useGenStore as useStore } from "./genStore";
 import { normaliseConfig } from "./gen/config";
 import { fmtInt } from "./format";
@@ -20,21 +20,28 @@ const ActiveCtx = createContext<string>("");
     journey itself (make, test, join) is the numbered navigation in the masthead. */
 export function Doc({ contents, children }: { step?: Step; contents: ContentsItem[]; children: ReactNode }) {
   const [active, setActive] = useState(contents[0]?.id ?? "");
+  const root = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (!contents.length || typeof IntersectionObserver === "undefined") return;
-    const seen = new Map<string, number>();
+    // the band runs from far above the page to a line 40% down the screen, so a heading is in it once it has passed that line
+    const inBand = new Set<string>();
     const io = new IntersectionObserver((entries) => {
-      for (const e of entries) seen.set((e.target as HTMLElement).id, e.isIntersecting ? e.boundingClientRect.top : Number.POSITIVE_INFINITY);
-      // the section nearest the top of the viewport that is on screen
-      let best = "", bestTop = Number.POSITIVE_INFINITY;
-      for (const [id, top] of seen) if (top < bestTop) { best = id; bestTop = top; }
-      if (best) setActive(best);
-    }, { rootMargin: "-10% 0px -60% 0px", threshold: [0, 0.2] });
-    for (const c of contents) { const el = document.getElementById(c.id); if (el) io.observe(el); }
-    return () => io.disconnect();
+      for (const e of entries) { const id = (e.target as HTMLElement).id; if (e.isIntersecting) inBand.add(id); else inBand.delete(id); }
+      // the section being read: the last entry whose heading is in the band and on the page, or the first where none is
+      let pick = contents[0].id;
+      for (const c of contents) if (inBand.has(c.id) && document.getElementById(c.id)) pick = c.id;
+      setActive(pick);
+    }, { rootMargin: "1000000px 0px -60% 0px", threshold: 0 });
+    // a section may appear after the list, for example once the data has been scored, so the page is watched for it
+    const watched = new Set<Element>();
+    const watch = () => { for (const c of contents) { const el = document.getElementById(c.id); if (el && !watched.has(el)) { watched.add(el); io.observe(el); } } };
+    watch();
+    const mo = root.current && typeof MutationObserver !== "undefined" ? new MutationObserver(watch) : null;
+    if (mo && root.current) mo.observe(root.current, { childList: true, subtree: true });
+    return () => { io.disconnect(); mo?.disconnect(); };
   }, [contents]);
   return (
-    <div className="doc">
+    <div className="doc" ref={root}>
       <aside className="rail" aria-label="Contents">
         {contents.length > 0 && (
           <div>
