@@ -64,7 +64,7 @@ export function RiskAssessment({ cfg }: { cfg: GenConfig }) {
     },
     {
       factor: "Channel",
-      setting: `${pct(cu.digitalShare)} of customers taken on online without being met and ${pct(1 - cu.digitalShare)} taken on in a branch or in person. Customers taken on online sit on the lighter identity-check tiers more often.`,
+      setting: `${pct(cu.digitalShare)} of customers taken on online without being met and ${pct(1 - cu.digitalShare)} taken on in a branch or in person. Customers taken on online are more often given the lighter identity checks.`,
       reading: channelReading,
       why: "Taking a customer on without meeting them is a risk factor in the JMLSG guidance, and where identity fraud enters.",
     },

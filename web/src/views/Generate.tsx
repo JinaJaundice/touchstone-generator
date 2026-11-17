@@ -133,7 +133,7 @@ export function Generate({ text }: { text?: Partial<GenerateText> } = {}) {
               </div>
               <div className="legend">{FAMILY_ORDER.filter((f) => typRows.some((r) => patternFamily(r.key) === f)).map((f) => <span key={f}><span className={`dot ${familyTone(f)}`} />{FAMILY_WORD[f]}</span>)}</div>
             </Disclosure>
-            <Disclosure id="shape" title="Rails and amounts" sub="how the transactions split by rail, and where the planted ones sit among all the amounts" count={`${Object.keys(ds.summary.byRail).length} rails`}>
+            <Disclosure id="shape" title="Rails and amounts" sub="how the transactions split by rail, and how the planted amounts compare with all the amounts" count={`${Object.keys(ds.summary.byRail).length} rails`}>
               <div className="grid cols-2">
                 <Card title="Transactions by rail">
                   <BarList rows={Object.entries(ds.summary.byRail).sort((a, b) => b[1] - a[1]).map(([k, v]) => ({ key: k, label: RAIL_LABEL[k] ?? k, total: v }))} format={fmtInt} />
@@ -144,7 +144,7 @@ export function Generate({ text }: { text?: Partial<GenerateText> } = {}) {
                 </Card>
               </div>
             </Disclosure>
-            <Disclosure id="log" title="The transaction log, under the hood" sub="thirty rows at random or the first thirty of a kind, where the download holds every row" count="30 rows">
+            <Disclosure id="log" title="The transaction log" sub="thirty rows at random or the first thirty of a kind, where the download holds every row" count="30 rows">
               <p className="faint" style={{ marginTop: 0, marginBottom: 8 }}>Seed number <span className="val">{ds.config.seed}</span>, fingerprint <span className="val">{s.fingerprint ?? "…"}</span>. A new make gives new rows unless the seed number is pinned.</p>
               <div className="btn-row" style={{ marginTop: 0, marginBottom: 10 }}><Seg size="sm" label="Which transactions to show" value={logFilter} onChange={setLogFilter} options={[{ key: "random", label: "Thirty at random" }, { key: "pattern", label: "Planted transactions" }, { key: "fraud", label: "Fraud" }, { key: "crypto", label: "Crypto" }, { key: "all", label: "Everything" }]} />{logFilter === "random" && <Button small onClick={() => setDraw((d) => d + 1)}>Another thirty</Button>}</div>
               <div className="tbl-wrap" tabIndex={0}>

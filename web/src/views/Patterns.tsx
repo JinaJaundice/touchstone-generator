@@ -84,7 +84,7 @@ function PatternList({ ds, config, making, stage }: { ds: Dataset | null; config
       <PageHead title="Every crime pattern the generator can plant"
         sub={`The generator plants ${ALL_TYPOLOGIES.length} built-in crime patterns in ${FAMILIES.length} families and ${PATTERNS.length} library patterns, which are off until you switch them on. Each name opens the page of the pattern, where its planted cases are drawn one step at a time.`}
         right={<a className="btn btn-sm" href="#/data">Back to Make data</a>} />
-      {making && <Working label={"Making the data: " + (stage ?? "")} />}
+      {making && <Working label={stage ? `Making the data (${stage})` : "Making the data"} />}
       {!making && !ds && <p>Make the data to see how many cases of each pattern it holds. <a className="link" href="#/data">Make data</a></p>}
       {FAMILIES.map((f, i) => (
         <Section key={f} id={"family-" + f} n={String(i + 1)} title={FAMILY_LABEL[f]} sub={"Handled by " + FAMILY_OWNER[f] + "."}>
@@ -155,7 +155,7 @@ function PatternPage({ name, ds, making, stage, caseParam }: { name: Typology; d
   ];
   const nothing = !making && ds !== null && own.length === 0;
   const waiting = making
-    ? <Working label={"Making the data: " + stage} />
+    ? <Working label={`Making the data (${stage})`} />
     : !ds
       ? <p>Make the data to see the cases of this pattern. <a className="link" href="#/data">Make data</a></p>
       : null;
@@ -282,7 +282,7 @@ function LibraryPatternPage({ id, ds, config, making, stage, caseParam }: { id: 
     { id: "settings", n: "6", title: "Its settings" },
   ];
   const waiting = making
-    ? <Working label={"Making the data: " + stage} />
+    ? <Working label={`Making the data (${stage})`} />
     : !ds
       ? <p>Make the data to see the cases of this pattern. <a className="link" href="#/data">Make data</a></p>
       : null;

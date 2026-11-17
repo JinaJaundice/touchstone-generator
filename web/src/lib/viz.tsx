@@ -33,7 +33,7 @@ export function TouchStrip({ big, label, sub, parts, total, totalLabel, compact 
   const t = Math.max(1, total);
   let x = 1;
   const segs = parts.map((p) => { const w = Math.max(0, 98 * p.value / t); const s = { left: x, width: w, tone: p.tone }; x += w + (w > 0 ? 0.3 : 0); return s; });
-  const text = `${label}: ${parts.map((p) => `${p.value} ${typeof p.label === "string" ? p.label : ""}`).join(", ")} of ${total}`;
+  const text = `${label}, ${parts.map((p) => `${p.value} ${typeof p.label === "string" ? p.label : ""}`).join(", ")} of ${total}`;
   return (
     <div className={`touch ${compact ? "touch-compact" : ""}`}>
       <div className="touch-fig"><b className="val">{big}</b><span>{label}</span>{sub && <small>{sub}</small>}</div>
@@ -106,7 +106,7 @@ export function AssayMatrix({ rows, cols }: { rows: MatrixRow[]; cols: MatrixCol
               return (
                 <tr key={r.key} className={hot?.r === r.key ? "hot" : ""}>
                   <td className="lbl" onMouseEnter={() => setHot({ r: r.key })}><small className={`val ${missed ? "m" : ""}`}>{r.caught}/{r.instances}</small><span className={`dot ${famTone(r.family)}`} aria-hidden />{r.label}</td>
-                  {model.used.map((c) => { const n = r.byRule[c.key] ?? 0; const s = side(n); return <td key={c.key} className="cell" onMouseEnter={() => setHot({ r: r.key, c: c.key })} title={n ? `${c.code}: ${n} of ${r.instances}` : undefined}>{s > 0 && <i style={{ width: s, height: s }} />}</td>; })}
+                  {model.used.map((c) => { const n = r.byRule[c.key] ?? 0; const s = side(n); return <td key={c.key} className="cell" onMouseEnter={() => setHot({ r: r.key, c: c.key })} title={n ? `${c.code} caught ${n} of ${r.instances}` : undefined}>{s > 0 && <i style={{ width: s, height: s }} />}</td>; })}
                   {model.missedTotal > 0 && <td className="cell miss" onMouseEnter={() => setHot({ r: r.key, c: "__missed" })} title={missed ? `${missed} missed` : undefined}>{missed > 0 && <i className="m" style={{ width: side(missed), height: side(missed) }} />}</td>}
                 </tr>
               );
@@ -114,7 +114,7 @@ export function AssayMatrix({ rows, cols }: { rows: MatrixRow[]; cols: MatrixCol
           </tbody>
         </table>
       </div>
-      <div className="mx-key"><span><i />caught by the rule in that column; the square grows with the count</span><span><i className="m" />missed by every rule</span>{present.map((f) => <span key={f}><span className={`dot ${famTone(f)}`} style={{ marginRight: 6 }} />{FAM_WORD[f]}</span>)}</div>
+      <div className="mx-key"><span><i />caught by the rule in that column (the square grows with the count)</span><span><i className="m" />missed by every rule</span>{present.map((f) => <span key={f}><span className={`dot ${famTone(f)}`} style={{ marginRight: 6 }} />{FAM_WORD[f]}</span>)}</div>
       <div className="mx-read" aria-live="polite">{read ?? <span className="faint">Move over a row, a column or a square to read the count.</span>}</div>
     </div>
   );
@@ -249,7 +249,7 @@ export function ScoreHistogram({ clean, bad, bins = 20 }: { clean: number[]; bad
   const bw = (W - Lp * 2) / bins;
   const y = (n: number, mx: number) => n === 0 ? 0 : Math.max(2, Math.sqrt(n / mx) * (H - T - B));
   return (
-    <svg className="chart-svg" viewBox={`0 0 ${W} ${H}`} role="img" aria-label="how many accounts sit at each score; clean accounts in grey, laundering accounts in claret">
+    <svg className="chart-svg" viewBox={`0 0 ${W} ${H}`} role="img" aria-label="How many accounts there are at each score. Clean accounts are in grey and laundering accounts in claret.">
       {[0.5, 1].map((f) => <line key={f} x1={Lp} x2={W - Lp} y1={H - B - f * (H - T - B)} y2={H - B - f * (H - T - B)} stroke="var(--grid)" />)}
       <line x1={Lp} x2={W - Lp} y1={H - B} y2={H - B} stroke="var(--rule)" />
       {a.map((n, i) => <rect key={i} x={Lp + i * bw + 1} y={H - B - y(n, maxA)} width={bw / 2 - 2} height={y(n, maxA)} fill="var(--slate-fill)" opacity={0.45} />)}
