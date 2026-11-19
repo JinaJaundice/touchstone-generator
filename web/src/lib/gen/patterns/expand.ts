@@ -14,7 +14,8 @@
              A step runs once, or once per leg of the step it follows (start.per), or once per member (each), or both
              (legs outside, members inside). Each run draws in this order, and a run is finished before the next starts:
      move    1 count n (int, times); 1 wait before the first leg (start); n-1 waits (between);
-             the amount: of-forms 1 share, gbp or under n values (one per leg); then n weights (0.5..1.5) if split is uneven;
+             the amount: of-forms 1 share, gbp or under n values (one per leg); then n weights (0.5..1.5) if split is uneven,
+             or n weights (k + 1) * (0.8..1.2), sorted from the smallest, if split is rising;
              then n via picks (int) if via is a list.
      chain   1 hop count N (int; none for through.party); 1 start wait; N between waits; 1 amount draw for the first leg;
              one peel share for each hop from fromHop to N; N+1 via picks if via is a list; one pick for each peel leg if peel.via is a list.
@@ -133,7 +134,8 @@ export function drawPlan(pattern: Pattern, partsById: PartLookup, settings: Plan
     const d = drawAmt(step.amount, n);
     let w: number[] = Array(n).fill(1);
     if ("of" in step.amount && step.split === "uneven") w = Array.from({ length: n }, () => flt([0.5, 1.5]));
-    else if ("of" in step.amount && step.split === "rising") w = w.map((_, k) => k + 1);
+    // rising: payment k, counted from 1, weighs k times a number drawn evenly from 0.8 to 1.2, and the sort keeps the payments rising
+    else if ("of" in step.amount && step.split === "rising") w = Array.from({ length: n }, (_, k) => (k + 1) * flt([0.8, 1.2])).sort((a, b) => a - b);
     const vp = picks(step.via, n), sum = w.reduce((a, b) => a + b, 0), run = newRun(pi, step, "move", n);
     let t = anchor + t0;
     for (let k = 0; k < n; k++) {

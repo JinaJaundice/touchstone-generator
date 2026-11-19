@@ -67,6 +67,7 @@
           1
         ]
       },
+      "split": "uneven",
       "times": [
         1,
         3
@@ -90,7 +91,7 @@
         "kind": "reported",
         "ref": "S57",
         "pages": "30",
-        "note": "The report describes a self-custody wallet that swaps tokens on a decentralised exchange. The counts and waits are assumed."
+        "note": "The report describes a self-custody wallet that swaps tokens on a decentralised exchange. The counts, the sizes and the waits are assumed."
       }
     },
     {

@@ -507,7 +507,7 @@ function LibraryPatternPage({ id, ds, config, making, stage, caseParam }: { id: 
         <p>The 6 difficulty settings of the bank do not change this pattern, apart from the share of accounts in more than one pattern.</p>
       </Section>
       <Section id="typical" n="5" title="A typical case" sub={typical ? `A case is one planted run of the pattern. This typical case has ${plural(typical.rows.length, "payment")} between ${plural(typical.parties.length, "party", "parties")}, moves ${fmtGbp(typical.value)} and lasts ${lengthText(caseMinutes(typical))}.${cap ? " The typical case is priced before that limit, so the cases of a data set are often smaller." : ""}` : undefined}>
-        <p style={{ marginTop: 0 }}>This case is drawn from the files with a fixed seed number. It is not in the data set. It follows the size, the speed and the end of section 4.</p>
+        <p style={{ marginTop: 0 }}>This case is drawn from the files with a fixed seed number. It is not in the data set. In a data set, each payment that the bank records takes a time of day that ordinary customers use, so its time can differ from the time in this case. It follows the size, the speed and the end of section 4.</p>
         {typical && (
           <>
             <StepControls steps={typicalSteps} shown={typicalShown} onShown={setTypicalShown} />

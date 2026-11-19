@@ -75,6 +75,7 @@
           1
         ]
       },
+      "split": "uneven",
       "times": [
         1,
         4
@@ -98,7 +99,7 @@
         "kind": "reported",
         "ref": "S57",
         "pages": "33, 34",
-        "note": "The report says that the funds are run through some trading so that they look normal. The count of trades and the waits are assumed."
+        "note": "The report says that the funds are run through some trading so that they look normal. The count of trades, their sizes and the waits are assumed."
       }
     },
     {

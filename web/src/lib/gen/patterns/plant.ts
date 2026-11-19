@@ -1,10 +1,20 @@
 /* The planter (docs/PATTERN_FORMAT.md section 6): places the cases of the library patterns that a user has switched on.
-   scheduleLibrary(w) runs after scheduleCrypto and settleLibrary(w) after the days have run. A typed copy of the
-   reference planter, with the same order of random draws, so that a case planted here matches the stored cases of
-   scripts/fixtures/library-golden. The working state of a world is kept in a map of this file and never reaches the
-   data set. */
+   scheduleLibrary(w) runs after scheduleCrypto and settleLibrary(w) after the days have run. It makes the draws of the
+   first stream of each pattern in the order of the reference planter, so that a case planted here matches the stored
+   cases of scripts/fixtures/library-golden. The working state of a world is kept in a map of this file and never
+   reaches the data set.
 
-import { mulberry32 } from "../../rng";
+   THE SECOND STREAM (rule 1). Each pattern also draws from a second stream of its own, whose tag is "lib:", the id of
+   the pattern and ":bank". It holds only the numbers that place a case in the bank's records, and for each case it
+   draws them in this order:
+     1. one number for each party of the kind outside-account, in the order of the parties of the priced case, which
+        gives the type of the account (section 7 of the format)
+     2. after those draws, for the payments in the bank's records, walked in planned order and grouped by planned day
+        and curve, one minute for each payment of a group at the first payment of the group (rule 8, clause 2)
+     3. at the same payment, one further minute where clause 3 of rule 8 sends it to the first time of a drawn minute.
+   The clock rule of rule 8 and the second stream have no copy in the reference planter. */
+
+import { mulberry32, rint, type Rng } from "../../rng";
 import { makeEthAddress, makeSegwitAddress, makeTronAddress } from "../address";
 import { streamSeed } from "../streams";
 import { classOf } from "../walletClass";
@@ -13,6 +23,7 @@ import { LIBRARY_VERSION } from "./version";
 import { PARTS, PATTERNS } from "./index";
 import { drawPlan, price } from "./expand";
 import labelsFile from "./labels.json";
+import { BUSINESS_SHARE_OF_FIRMS, PERSONAL_SHARE_OF_PEOPLE, drawMinute } from "../world";
 import type { Scheduled, World } from "../world";
 import type { AccountRole, GenConfig, LibraryCase, LibraryRecord, PatternInstance, Tx } from "../types";
 import type {
@@ -29,6 +40,13 @@ export function setRowCap(n: number): void { rowCap = n; }
 const FPS_LIMIT = sources.fasterPayments.perPaymentGbp as Record<string, number>;
 const SCHEME_LIMIT = sources.fasterPayments.schemeLimit;
 const ALLOWED: ReadonlyMap<string, readonly string[]> = new Map(labelsFile.patterns.map((p) => [p.id, p.allowed]));
+
+/** The 3 curves of minutes of rule 8: the counter, the business day and the day. */
+type Curve = "counter" | "business" | "day";
+/** The hours of each curve, in minutes of the day, inside which clause 3 of rule 8 lets a payment keep its planned gap: 09:00 to 17:00 for the counter, 06:00 to 17:40 for the business day and 06:00 to midnight for the day. */
+const HOURS: Record<Curve, readonly [number, number]> = { counter: [540, 1020], business: [360, 1060], day: [360, 1439] };
+/** A minute of the day from a curve, drawn with the stream r. The counter is even from 09:00 to 16:40, as normal.ts draws ordinary cash paid in at a counter, and the business day and the day are the curves of World.minute. */
+const clockMinute = (r: Rng, curve: Curve): number => (curve === "counter" ? rint(r, 540, 1000) : drawMinute(r, curve));
 
 // section 6.1: the need of a party as a sentence
 const SEG_WORD: Record<string, string> = { retail: "a personal customer", sme: "a small firm", corporate: "a corporate", private: "a private client" };
@@ -63,7 +81,11 @@ export function patternsOn(cfg: GenConfig): Pattern[] {
   return PATTERNS.filter((p) => { const s = lib?.[p.id]; return !!s?.on && (s.per1k ?? p.per1k) > 0; });
 }
 
-interface Info extends CaseParty { ref: string; address: string | null; u1: number; u2: number; def: PartParty | undefined; country: string; lost: number }
+interface Info extends CaseParty {
+  ref: string; address: string | null; u1: number; u2: number; def: PartParty | undefined; country: string; lost: number;
+  /** the type of an outside account that a customer of the case pays by Faster Payments, CHAPS or SWIFT (section 7 of the format), unset where no customer pays it by those rails */
+  payeeType?: "personal" | "business";
+}
 interface Row { l: PricedLeg; t: number; sched: boolean }
 interface Rec {
   caseId: number; pattern: string; sees: "source" | "cash-out" | "both"; n: number;
@@ -109,14 +131,15 @@ export function scheduleLibrary(w: World): void {
   w.onLibraryLeg = (s, tx) => onLeg(st, s, tx);
   const saved = w.r, period = w.cfg.period ?? 1;
   try {
-    for (const p of on) { // rule 1
+    for (const p of on) { // rule 1: the first stream of the pattern, and its second stream for the numbers that place a case in the bank's records
       w.r = mulberry32(streamSeed(w.cfg.seed, period, `lib:${p.id}`));
-      plantPattern(w, st, p, lib[p.id]);
+      const r2 = mulberry32(streamSeed(w.cfg.seed, period, `lib:${p.id}:bank`));
+      plantPattern(w, st, p, lib[p.id], r2);
     }
   } finally { w.r = saved; }
 }
 
-function plantPattern(w: World, st: State, p: Pattern, set: NonNullable<GenConfig["library"]>[string]) {
+function plantPattern(w: World, st: State, p: Pattern, set: NonNullable<GenConfig["library"]>[string], r2: Rng) {
   const sees = set.bankSees ?? p.bankSees;
   if (!(ALLOWED.get(p.id) ?? []).includes(sees)) throw new Error(`${p.id}: bankSees ${sees} is not allowed`);
   const settings: PlanSettings = { size: set.size ?? 1, speed: set.speed ?? 1, bankSees: sees, cashThreshold: w.cfg.cashThreshold, travelRuleThreshold: w.cfg.travelRuleThreshold };
@@ -183,7 +206,7 @@ function plantPattern(w: World, st: State, p: Pattern, set: NonNullable<GenConfi
     }
     const first = price(plan, facts, pre);
     rows += first.legs.length;
-    const rec = plantCase(w, p, sees, n, plan, first, facts, account, day0 * 1440 + startMin);
+    const rec = plantCase(w, p, sees, n, plan, first, facts, account, day0 * 1440 + startMin, r2);
     st.recs.set(rec.caseId, rec); st.list.push(rec);
   }
 }
@@ -204,11 +227,22 @@ function poolFor(w: World, def: PartParty | undefined, day0: number): number[] {
   return c.map((a) => a.id);
 }
 
-function plantCase(w: World, p: Pattern, sees: "source" | "cash-out" | "both", n: number, plan: Plan, first: PricedCase, facts: Record<string, number[]>, account: Map<string, number>, base: number): Rec {
+function plantCase(w: World, p: Pattern, sees: "source" | "cash-out" | "both", n: number, plan: Plan, first: PricedCase, facts: Record<string, number[]>, account: Map<string, number>, base: number, r2: Rng): Rec {
   const caseId = w.nextCase++;
   const srcDef = part(p.parts.source) as SourcePart, outDef = part(p.parts.cashOut);
   const lost = 1 - p.parts.hiding.reduce((a, id) => a * (1 - ((part(id) as { hides?: { chance: number } }).hides?.chance ?? 0)), 1);
   const info = new Map<string, Info>(first.parties.map((q) => [q.key, { ...q, ref: "", address: null, u1: 0, u2: 0, def: undefined, country: "GB", lost }]));
+  // section 7: one draw of the second stream for each outside account, in party order. The account takes the type that an ordinary
+  // new payee of the segment of its first payer takes (World.externalPayee), where a customer of the case pays it by Faster Payments,
+  // CHAPS or SWIFT, the first payment in planned order deciding.
+  for (const q of first.parties) {
+    if (q.kind !== "outside-account") continue;
+    const u = r2();
+    const l = first.legs.find((x) => x.to === q.key && (x.via === "fps" || x.via === "chaps" || x.via === "swift") && info.get(x.from)?.kind === "customer");
+    if (!l) continue;
+    const seg = w.accounts[account.get(l.from)!].segment;
+    info.get(q.key)!.payeeType = seg === "retail" || seg === "private" ? (u < PERSONAL_SHARE_OF_PEOPLE ? "personal" : "business") : (u < BUSINESS_SHARE_OF_FIRMS ? "business" : "personal");
+  }
   // party details, drawn in party order: reference, address, the two label draws and the country
   for (const q of first.parties) {
     if (q.kind === "customer") continue;
@@ -245,18 +279,31 @@ function plantCase(w: World, p: Pattern, sees: "source" | "cash-out" | "both", n
   // rows of the first price. A leg that the first price left out stays out in every later price.
   for (const l of first.legs) rec.rows.set(l.seq, { l, t: 0, sched: false });
   for (const l of plan.legs) if (!rec.rows.has(l.seq)) rec.fixed[l.seq] = 0;
-  // rule 8: schedule each leg that the bank sees, in order of time; a delay moves every later leg
-  let prev = 0, late = false; // prev is the time of the latest earlier leg: the legs of a case are written in their order
+  // rule 8, the clock rule: each payment in the bank's records keeps the day of the plan and takes a minute of the day from the
+  // curve of ordinary payments of its kind, and the payments of a case keep their order. The legs of first.legs are in planned order.
+  let prev = 0, prevPlanned = 0, late = false; // prev is the time of the leg before, after World.schedule, and prevPlanned its planned time
   const endT = w.cfg.days * 1440;
+  const curves = new Map<number, Curve>(), groupSize = new Map<string, number>(), minutes = new Map<string, number[]>();
+  const groupOf = (l: PricedLeg): string => `${Math.floor(abs(l) / 1440)}|${curves.get(l.seq)}`;
+  for (const l of first.legs) if (l.seenBy === "bank") { curves.set(l.seq, curveOf(w, rec, l)); groupSize.set(groupOf(l), (groupSize.get(groupOf(l)) ?? 0) + 1); }
   for (const l of first.legs) {
-    let t = Math.max(abs(l), prev);
-    if (l.seenBy === "bank" && (l.via === "cash-in" || l.via === "cash-out")) { // a counter is open from 09:00 to 17:00: ask for its next opening
-      const m = t % 1440, d = Math.floor(t / 1440);
-      if (m > 1020) t = (d + 1) * 1440 + 540; else if (m < 540) t = d * 1440 + 540;
-    }
+    const planned = abs(l);
+    let t = planned;
+    if (l.seenBy === "bank") {
+      // clause 2: the payments of one planned day and one curve take their minutes from one set of draws, sorted from the earliest
+      const curve = curves.get(l.seq)!, key = groupOf(l);
+      let mins = minutes.get(key);
+      if (!mins) { mins = Array.from({ length: groupSize.get(key)! }, () => clockMinute(r2, curve)).sort((a, b) => a - b); minutes.set(key, mins); }
+      t = Math.floor(planned / 1440) * 1440 + mins.shift()!;
+      if (t < prev) { // clause 3: the planned gap where it is at most 60 minutes and ends inside the hours of the curve, otherwise the first time after the leg before at which the clock shows a drawn minute
+        const gap = planned - prevPlanned, kept = prev + gap, [open, close] = HOURS[curve];
+        if (gap <= 60 && kept % 1440 >= open && kept % 1440 <= close) t = kept;
+        else { const x = clockMinute(r2, curve), d = Math.floor(prev / 1440); t = x > prev % 1440 ? d * 1440 + x : (d + 1) * 1440 + x; }
+      }
+    } else if (t < prev) t = prev + (planned - prevPlanned); // clause 4: a leg on a chain or off the record keeps its planned time, or follows the leg before after the planned gap
     const row = rec.rows.get(l.seq)!;
     row.t = t; row.sched = false;
-    prev = t;
+    prev = t; prevPlanned = planned;
     if (t >= endT) { rec.fixed[l.seq] = 0; late = true; continue; } // after the last day: the leg did not happen
     if (l.seenBy !== "bank") continue;
     const s = toScheduled(w, rec, l, t);
@@ -275,6 +322,23 @@ function plantCase(w: World, p: Pattern, sees: "source" | "cash-out" | "both", n
   return rec;
 }
 
+/** True where a payment of a case goes by CHAPS: a CHAPS step, or a Faster Payment above the limit of the segment of the paying customer, or above the scheme limit where an outside party pays. toScheduled sets the method by it, and rule 8 gives such a payment the business day. */
+function byChaps(w: World, rec: Rec, l: PricedLeg): boolean {
+  if (l.via === "chaps") return true;
+  if (l.via !== "fps") return false;
+  const limit = rec.info.get(l.from)?.kind === "customer" ? FPS_LIMIT[w.accounts[rec.account.get(l.from)!].segment] : SCHEME_LIMIT;
+  return l.amount > limit || l.amount > SCHEME_LIMIT;
+}
+
+/** The curve of a payment in the bank's records by clause 1 of rule 8, from its rail, its amount in the first price and its parties: cash at a counter takes the counter, a CHAPS payment and a credit from an outside party into the account of a small firm or a corporate take the business day, and each other payment takes the day. */
+function curveOf(w: World, rec: Rec, l: PricedLeg): Curve {
+  if (l.via === "cash-in" || l.via === "cash-out") return "counter";
+  if (byChaps(w, rec, l)) return "business";
+  const cust = (k: string): boolean => rec.info.get(k)?.kind === "customer";
+  if (!cust(l.from) && cust(l.to)) { const seg = w.accounts[rec.account.get(l.to)!].segment; if (seg === "sme" || seg === "corporate") return "business"; }
+  return "day";
+}
+
 function toScheduled(w: World, rec: Rec, l: PricedLeg, t: number): Scheduled {
   const fp = rec.info.get(l.from)!, tp = rec.info.get(l.to)!;
   const fc = fp.kind === "customer", tc = tp.kind === "customer";
@@ -289,13 +353,8 @@ function toScheduled(w: World, rec: Rec, l: PricedLeg, t: number): Scheduled {
   const A = (q: CaseParty) => rec.account.get(q.key)!;
   if (fc) s.from = A(fp); if (tc) s.to = A(tp);
   const out = fc && !tc, inn = !fc && tc;
-  const fpsOrChaps = (): void => {
-    if (l.via === "chaps") { s.method = "chaps"; return; }
-    const limit = fc ? FPS_LIMIT[w.accounts[s.from].segment] : SCHEME_LIMIT;
-    s.method = l.amount > limit || l.amount > SCHEME_LIMIT ? "chaps" : "fps";
-  };
   if (l.via === "fps" || l.via === "chaps") {
-    fpsOrChaps();
+    s.method = byChaps(w, rec, l) ? "chaps" : "fps";
     s.type = inn ? "INCOME" : "TRANSFER";
     if (out) s.cpRef = tp.ref; if (inn) s.cpRef = fp.ref;
     if (fc && s.type === "TRANSFER") { if (f.payeeType) s.payeeType = f.payeeType; }
@@ -323,6 +382,8 @@ function toScheduled(w: World, rec: Rec, l: PricedLeg, t: number): Scheduled {
     s.walletClass = c.label === "illicit" && c.predicted ? classOf(c.predicted) : "unknown";
     s.crypto = c;
   }
+  // section 7: a payment out to an outside account by Faster Payments, CHAPS or SWIFT takes the type of the account, unless its step gives payeeType
+  if (out && tp.kind === "outside-account" && tp.payeeType && !f.payeeType && (l.via === "fps" || l.via === "chaps" || l.via === "swift")) s.payeeType = tp.payeeType;
   if (fc && (f.reason || f.callActive !== undefined || f.remoteAccess !== undefined || f.newDevice !== undefined)) {
     if (f.reason) s.payee = { reason: f.reason };
     const ses: NonNullable<Scheduled["session"]> = {};

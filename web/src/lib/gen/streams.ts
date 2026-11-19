@@ -25,7 +25,7 @@ export const STREAMS = ["life", "aml", "fraud", "crypto", "days"] as const;
 /** The name of one of the streams of STREAMS. */
 export type StreamTag = (typeof STREAMS)[number];
 
-/** The seed of one stream of one period of one bank: the seed number, the period and the family, mixed. The same three always give the same stream. A tag of the form "lib:" and a pattern id gives the stream of one library pattern. */
+/** The seed of one stream of one period of one bank: the seed number, the period and the family, mixed. The same three always give the same stream. A tag of the form "lib:" and a pattern id gives the stream of one library pattern, and the same tag followed by ":bank" gives its second stream, from which the planter draws the numbers that place a case in the bank's records. */
 export function streamSeed(seed: number, period: number, tag: StreamTag | `lib:${string}`): number {
   return mix32((mix32(seed >>> 0) ^ Math.imul(period, 0x9e3779b1) ^ tagHash(tag)) >>> 0);
 }

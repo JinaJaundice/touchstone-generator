@@ -1,7 +1,8 @@
-// Test of the pattern library (src/lib/gen/patterns/). It holds tests L1 to L13, and every one covers every pattern of the library as the registry holds it.
+// Test of the pattern library (src/lib/gen/patterns/). It holds tests L1 to L14, and every one covers every pattern of the library as the registry holds it.
 // L3, L6, L7, L8, L9 (second half) and L10 read 16 data sets made one at a time: A1 to A3 (every pattern at its own rate and end, seeds 20260904, 77 and 4242),
 // B, C and D (patterns with 2 customer ends set to both ends, the source and the cash-out), E (A1 again), F (the ransom pattern alone at both ends), G1 to G5 (the
 // peel-chain pattern alone at a rate of 5, seeds 1 to 5), H (every pattern at a rate of 5 with the cap of rows at 1,000) and I1 and I2 (the private bank and the challenger bank).
+// L14 makes one data set of its own after them, so their counts do not change.
 //   L1  every file under parts/ and library/ is valid and imported by index.ts, no pattern has the id of a built-in
 //       pattern, labels.json holds what labelsOf gives from the files, the 3 name functions of types.ts answer for each
 //       library key and for mule_herd, and classOf maps each of the 10 classes of a screening tool.
@@ -30,7 +31,14 @@
 //       the part bridge-hop, by check 11, check 12 and check 13. (4) cutShortOf is true for the stored case of the bridge pattern without the payments of the step
 //       deposit of the use mixer~2, and false with every payment. (5) Over the same 200 plans, the groups of parties that hold no chain on a payment with a chain, with the customers left out,
 //       are the 4 services of the table of the design on uses and chains and no others.
-// It prints one line for each check and exits with code 1 unless every check passes. It prints 15 lines of checks, because it prints L9 in 2 halves and holds check L1b, and then the times of the data sets and a summary.
+//   L14 in its own data set, the standard bank at seed number 20260904 with every pattern at a rate of 5 and at both ends where labelsOf allows it, the library
+//       payments are compared with the ordinary payments of the same data set. (1) In 5 groups by direction, rail and method no minute of the day holds more than 3%
+//       of the library payments, and (2) the gap between the curves of library and ordinary payments is at most 1.63 * sqrt(1/n + 1/N). (3) The rows of each case never
+//       run back in time. (4) No rising run of 3 or more payments is a ladder of whole multiples of its first payment, and (5) no run of 2 or more payments of the 3
+//       uneven steps of library version 2026-11.3 has one planned amount. (6) Library pairs of payments by one payer to one payee within 3 days have one amount no more
+//       often than ordinary pairs. (7) No library payment to a payee already paid has a reason, and (8) the outside accounts that customers pay are personal within 3
+//       standard deviations of the shares of an ordinary new payee of the first payer's segment (section 7 of docs/PATTERN_FORMAT.md).
+// It prints one line for each check and exits with code 1 unless every check passes. It prints 16 lines of checks, because it prints L9 in 2 halves and holds check L1b, and then the times of the data sets and a summary.
 //   npx esbuild scripts/qa-library.ts --bundle --platform=node --format=esm --outfile=.tmp/qa-library.mjs && node .tmp/qa-library.mjs
 import { createHash } from "node:crypto";
 import { existsSync, readFileSync, readdirSync } from "node:fs";
@@ -691,6 +699,87 @@ const record = (id: string, name: string, fail: string | null): void => { result
   if (!cutWithout) note13(4, "cutShortOf is false without the payments of the step deposit of the use mixer~2");
   if (cutWith) note13(4, "cutShortOf is true with every payment");
   record("L13", `${plansChecked} plans and ${rowsOnChain} rows with a chain name no party of another chain, the 4 services of the design are the only parties without a chain, the validator refuses 3 changed copies of bridge-hop, and cutShortOf answers for ${second.length} payments of mixer~2`, first13.filter((m) => m !== null).join(" | ") || null);
+
+  // L14: the marks of a library payment. One data set of its own, the standard bank at seed number 20260904 with each pattern at a rate of 5
+  // and at both ends where labelsOf allows it, whose library payments it compares with its ordinary payments. It is let go when the check ends.
+  {
+    const t14 = Date.now();
+    const ds = generate(standard(20260904, every((p) => ({ per1k: 5, ...(canBoth(p) ? { bankSees: "both" as const } : {}) }))), wallets);
+    const fails14: string[] = [];
+    const at = (t: { day: number; minute: number }): number => t.day * 1440 + t.minute;
+    const isLib = (t: Tx): boolean => typeof t.typology === "string" && t.typology.startsWith("lib.");
+    const isOrd = (t: Tx): boolean => t.patternId < 0 && t.type !== "INITIAL";
+    const groupOf = (t: Tx): string => `${t.orig >= 0 && t.dest >= 0 ? "between" : t.orig >= 0 ? "out" : "in"} ${t.rail} ${t.method}`;
+    const lib = ds.txs.filter(isLib), ord = ds.txs.filter(isOrd);
+    // statements 1 and 2: in each of 5 groups, the largest share of library payments at one minute is at most 3%, and the gap between the curves
+    // of library and ordinary payments is at most 1.63 * sqrt(1/n + 1/N)
+    const GROUPS = ["between FPS fps", "in FPS fps", "in CASH counter", "out FPS fps", "out CRYPTO crypto"];
+    const curve = (ts: Tx[]): number[] => { const h = new Array<number>(1440).fill(0); for (const t of ts) h[t.minute]++; return h; };
+    let topMax = 0;
+    for (const g of GROUPS) {
+      const a = lib.filter((t) => groupOf(t) === g), b = ord.filter((t) => groupOf(t) === g);
+      if (!a.length || !b.length) { fails14.push(`statement 1: ${g} holds ${a.length} library and ${b.length} ordinary payments`); continue; }
+      const ha = curve(a), hb = curve(b), top = Math.max(...ha) / a.length;
+      let ca = 0, cb = 0, gap = 0;
+      for (let m = 0; m < 1440; m++) { ca += ha[m] / a.length; cb += hb[m] / b.length; gap = Math.max(gap, Math.abs(ca - cb)); }
+      const bound = 1.63 * Math.sqrt(1 / a.length + 1 / b.length);
+      topMax = Math.max(topMax, top);
+      if (!(top <= 0.03)) fails14.push(`statement 1: ${g}, largest share at one minute ${(100 * top).toFixed(1)}% of ${a.length}, above 3%`);
+      if (!(gap <= bound)) fails14.push(`statement 2: ${g}, gap ${gap.toFixed(3)} above the bound ${bound.toFixed(3)} (n ${a.length}, N ${b.length})`);
+    }
+    // statement 3: the rows of each case, in the order of their numbers, have times that never decrease, the rows of payments that did not happen included
+    const byCase = new Map<number, { seq: number; t: number }[]>();
+    for (const r of ds.caseLegs) (byCase.get(r.caseId) ?? byCase.set(r.caseId, []).get(r.caseId)!).push({ seq: r.seq, t: at(r) });
+    let backwards = 0;
+    for (const rs of byCase.values()) { rs.sort((x, y) => x.seq - y.seq); if (rs.some((r, i) => i > 0 && r.t < rs[i - 1].t)) backwards++; }
+    if (backwards) fails14.push(`statement 3: ${backwards} of ${byCase.size} cases have a row whose time is earlier than the time of the row before it`);
+    // the runs of the answer key: the planned amounts, in pennies, of the rows of one use and one step in one case whose amount is above 0
+    const runs = new Map<string, number[]>();
+    for (const r of ds.caseLegs) if (r.amount > 0 && r.step !== "handoff") { const k = `${r.caseId}|${r.part}|${partIdOf(r.part)}.${r.step}`; (runs.get(k) ?? runs.set(k, []).get(k)!).push(pen(r.planned)); }
+    const stepOfRun = (k: string): string => k.split("|")[2];
+    // statement 4: no run of 3 or more payments of a step with the split rising is a ladder, where payment k is within k pennies of k times the first
+    const rising = new Set<string>();
+    for (const p of PARTS.values()) for (const s of p.steps) if (s.kind === "move" && s.split === "rising") rising.add(`${p.id}.${s.id}`);
+    let risingRuns = 0, ladders = 0;
+    for (const [k, v] of runs) { if (!rising.has(stepOfRun(k)) || v.length < 3) continue; risingRuns++; if (v.every((x, i) => Math.abs(x - (i + 1) * v[0]) <= i + 1)) ladders++; }
+    if (ladders) fails14.push(`statement 4: ${ladders} of ${risingRuns} runs of 3 or more payments of the steps ${[...rising].join(", ")} are a ladder`);
+    // statement 5: no run of 2 or more payments of the 3 steps that split unevenly since library version 2026-11.3 has one planned amount
+    const UNEVEN = new Set(["exchange-to-bank-account.trade", "high-risk-exchange-pass.trade", "dex-swap.swapIn"]);
+    let unevenRuns = 0, oneAmount = 0;
+    for (const [k, v] of runs) { if (!UNEVEN.has(stepOfRun(k)) || v.length < 2) continue; unevenRuns++; if (v.every((x) => x === v[0])) oneAmount++; }
+    if (oneAmount) fails14.push(`statement 5: ${oneAmount} of ${unevenRuns} runs of 2 or more payments of the steps ${[...UNEVEN].join(", ")} have one planned amount`);
+    // statement 6: pairs of consecutive payments by one payer to one payee at most 3 days apart have one amount no more often among library payments than among ordinary ones
+    const pairs = (ts: Tx[]): { n: number; same: number; share: number } => {
+      const by = new Map<string, Tx[]>();
+      for (const t of ts) { if (t.orig < 0) continue; const k = `${t.orig}|${t.dest >= 0 ? "a" + t.dest : t.cpRef ?? t.wallet ?? "?"}`; (by.get(k) ?? by.set(k, []).get(k)!).push(t); }
+      let n = 0, same = 0;
+      for (const list of by.values()) { list.sort((x, y) => at(x) - at(y)); for (let i = 1; i < list.length; i++) { if (at(list[i]) - at(list[i - 1]) > 3 * 1440) continue; n++; if (pen(list[i].amount) === pen(list[i - 1].amount)) same++; } }
+      return { n, same, share: n ? same / n : 0 };
+    };
+    const pl = pairs(lib), po = pairs(ord);
+    if (!(pl.share <= po.share)) fails14.push(`statement 6: library pairs with one amount ${(100 * pl.share).toFixed(2)}% (${pl.same} of ${pl.n}) against ordinary ${(100 * po.share).toFixed(2)}% (${po.same} of ${po.n})`);
+    // statement 7: no library payment to a payee already paid has a reason
+    const withReason = lib.filter((t) => t.payee && t.newPayee === false && t.payee.reason).length;
+    if (withReason) fails14.push(`statement 7: ${withReason} library payments to a payee already paid have a reason`);
+    // statement 8: the outside accounts that customers pay by Faster Payments, CHAPS or SWIFT, counted once for each case and reference from the first
+    // payment in order of time and of id, are personal within 3 standard deviations of the shares of an ordinary new payee of the first payer's segment
+    const firstPay = new Map<string, Tx>();
+    for (const t of [...lib].sort((x, y) => at(x) - at(y) || x.id - y.id)) {
+      if (t.orig < 0 || t.dest >= 0 || !t.payee || !(t.rail === "FPS" || t.rail === "CHAPS" || t.rail === "INTL") || !t.cpRef || t.cpRef.startsWith("VASP-")) continue;
+      const k = `${t.caseId}|${t.cpRef}`;
+      if (!firstPay.has(k)) firstPay.set(k, t);
+    }
+    let personal = 0, expected = 0, variance = 0;
+    for (const t of firstPay.values()) {
+      const seg = ds.accounts[t.orig].segment, p = seg === "retail" || seg === "private" ? 0.75 : 0.2;
+      expected += p; variance += p * (1 - p);
+      if (t.payee!.accountType === "personal") personal++;
+    }
+    const z = (personal - expected) / Math.sqrt(variance);
+    if (!(Math.abs(z) <= 3)) fails14.push(`statement 8: ${personal} of ${firstPay.size} outside accounts are personal, ${expected.toFixed(1)} expected, ${z.toFixed(2)} standard deviations from it`);
+    timing.push(`L14 ${((Date.now() - t14) / 1000).toFixed(1)} s`);
+    record("L14", `in the standard bank with every pattern at a rate of 5, the largest share of library payments at one minute is ${(100 * topMax).toFixed(1)}% in 5 groups, each gap between the curves is within its bound, ${byCase.size} cases keep their order, ${ladders} of ${risingRuns} rising runs are a ladder, ${oneAmount} of ${unevenRuns} runs of 3 uneven steps have one amount, ${(100 * pl.share).toFixed(2)}% of library pairs have one amount against ${(100 * po.share).toFixed(2)}% of ordinary pairs, ${withReason} payments to a payee already paid have a reason and ${personal} of ${firstPay.size} outside accounts are personal against ${expected.toFixed(1)} expected`, fails14.join(" | ") || null);
+  }
   console.log(`data sets: ${timing.join(", ")}`);
 }
 

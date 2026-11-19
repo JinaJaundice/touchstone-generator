@@ -97,6 +97,21 @@ export const isListed = (address: string | null | undefined): boolean => !!addre
 
 interface ExternalPayee { ref: string; type: "personal" | "business"; ageDays: number; bank: string; country: string }
 
+/** The share of new payees at other banks that are personal accounts where the payer is a retail customer or a private client. World.externalPayee draws with it, and the planter of the pattern library gives an outside account of a case its type with it. */
+export const PERSONAL_SHARE_OF_PEOPLE = 0.75;
+/** The share of new payees at other banks that are business accounts where the payer is a small firm or a corporate, used in the same 2 places. */
+export const BUSINESS_SHARE_OF_FIRMS = 0.8;
+
+/** A minute of the day drawn with the stream r from a daytime, business-hours, night or evening curve. World.minute draws it with the stream of the world, and the planter of the pattern library draws it with a stream of its own. */
+export function drawMinute(r: Rng, kind: "day" | "business" | "night" | "evening" = "day"): number {
+  let m: number;
+  if (kind === "night") m = normal(r, 3 * 60, 70);
+  else if (kind === "business") m = normal(r, 12.5 * 60, 130);
+  else if (kind === "evening") m = normal(r, 20.5 * 60, 75);
+  else m = r() < 0.85 ? normal(r, 14 * 60, 210) : normal(r, 21 * 60, 60);
+  return Math.max(0, Math.min(1439, Math.round(m)));
+}
+
 export class World {
   cfg: GenConfig;
   r: Rng;
@@ -212,14 +227,9 @@ export class World {
     return this.byDay[day].sort((a, b) => a.minute - b.minute);
   }
 
-  /** A minute of the day drawn from a daytime, business-hours or night curve. */
+  /** A minute of the day drawn from a daytime, business-hours or night curve, with the stream of the world. */
   minute(kind: "day" | "business" | "night" | "evening" = "day"): number {
-    let m: number;
-    if (kind === "night") m = normal(this.r, 3 * 60, 70);
-    else if (kind === "business") m = normal(this.r, 12.5 * 60, 130);
-    else if (kind === "evening") m = normal(this.r, 20.5 * 60, 75);
-    else m = this.r() < 0.85 ? normal(this.r, 14 * 60, 210) : normal(this.r, 21 * 60, 60);
-    return Math.max(0, Math.min(1439, Math.round(m)));
+    return drawMinute(this.r, kind);
   }
 
   /** A counterparty country. Domestic most of the time, and the patterns tilt it towards medium and high-risk places on purpose. */
@@ -281,7 +291,7 @@ export class World {
     const book = this.extPayees[acc];
     const fit = book.filter((p) => (!opts.type || p.type === opts.type) && (!opts.country || p.country === opts.country));
     if (!opts.fresh && fit.length && this.r() < 0.85) return fit[rint(this.r, 0, fit.length - 1)];
-    const type = opts.type ?? (this.accounts[acc].segment === "retail" || this.accounts[acc].segment === "private" ? (this.r() < 0.75 ? "personal" : "business") : (this.r() < 0.8 ? "business" : "personal"));
+    const type = opts.type ?? (this.accounts[acc].segment === "retail" || this.accounts[acc].segment === "private" ? (this.r() < PERSONAL_SHARE_OF_PEOPLE ? "personal" : "business") : (this.r() < BUSINESS_SHARE_OF_FIRMS ? "business" : "personal"));
     const p: ExternalPayee = { ref: `X${acc}-${book.length}`, type, ageDays: Math.round(lognormal(this.r, 2400, 0.8)), bank: `UK bank ${rint(this.r, 1, 30)}`, country: opts.country ?? "GB" };
     book.push(p);
     // payees the account had before the period are known; new ones are first payments
@@ -537,7 +547,8 @@ export class World {
         cop: newPayee && country === "GB" && method !== "direct-debit" ? (s.payee?.cop ?? pickKey<NonNullable<PayeeFacts["cop"]>>(this.r, A.copOrdinaryNewPayee as unknown as Record<string, number>)) : null,
         accountType: s.payee?.accountType ?? accountType,
         accountAgeDays: s.payee?.accountAgeDays !== undefined ? s.payee.accountAgeDays : ageDays,
-        reason: newPayee ? (s.payee?.reason ?? pickKey<NonNullable<PayeeFacts["reason"]>>(this.r, A.reasonOrdinaryNewPayee as unknown as Record<string, number>)) : (s.payee?.reason ?? null),
+        // a payment of a library case (s.leg) gives the reason of its step to a new payee only, as an ordinary payment gives a reason to a new payee only
+        reason: newPayee ? (s.payee?.reason ?? pickKey<NonNullable<PayeeFacts["reason"]>>(this.r, A.reasonOrdinaryNewPayee as unknown as Record<string, number>)) : s.leg ? null : (s.payee?.reason ?? null),
         // an exchange's collection account: the generator names its exchange payees VASP-n, and the bank's list recognises them
         cryptoExchange: cpRef !== null && cpRef.startsWith("VASP-"),
       };
